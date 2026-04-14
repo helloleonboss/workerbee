@@ -261,8 +261,10 @@ function App() {
             />
           </TabsContent>
 
-          <TabsContent active={view === "settings"} className="flex-1 overflow-auto p-4">
-            <SettingsView config={config} onConfigChange={handleConfigChange} />
+          <TabsContent active={view === "settings"} className="flex-1 overflow-auto flex justify-center p-4">
+            <div className="w-full max-w-lg">
+              <SettingsView config={config} onConfigChange={handleConfigChange} />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
@@ -308,9 +310,21 @@ function TodayView({
   const latestEditTime = useRef("");
   const latestEditContent = useRef("");
   const isSaving = useRef(false);
+  const pendingFocusIndex = useRef<number | null>(null);
 
   const syncEditTime = (v: string) => { setEditTime(v); latestEditTime.current = v; };
   const syncEditContent = (v: string) => { setEditContent(v); latestEditContent.current = v; };
+
+  // After entries refresh, auto-focus the pending block (after deletion)
+  useEffect(() => {
+    if (pendingFocusIndex.current !== null) {
+      const idx = pendingFocusIndex.current;
+      pendingFocusIndex.current = null;
+      if (idx >= 0 && idx < sortedEntries.length) {
+        startEdit(idx, sortedEntries[idx], "content");
+      }
+    }
+  }, [entries]);
 
   const startEdit = (index: number, entry: LogEntry, focusField?: "time" | "content") => {
     setEditingIndex(index);
@@ -361,6 +375,8 @@ function TodayView({
           newLog += `\n\n## ${entry.time}\n\n${entry.content}`;
         }
         await writeLog(date, newLog);
+        // Focus previous block after refresh (index i-1 in sorted order)
+        pendingFocusIndex.current = idx - 1;
       } else if (newTime !== originalEntry.time || newContent !== originalEntry.content) {
         // Update entry
         const entryIdx = allEntries.findIndex(
@@ -432,7 +448,7 @@ function TodayView({
               >
                 {editingIndex === i ? (
                   /* --- Editing state --- */
-                  <div className="space-y-1">
+                  <div>
                     <input
                       ref={editTimeRef}
                       value={editTime}
@@ -440,13 +456,20 @@ function TodayView({
                       onKeyDown={(e) => {
                         if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
                         if (e.key === "Enter") { e.preventDefault(); editContentRef.current?.focus(); }
+                        // Time empty + Backspace: if content also empty → delete entry; else do nothing
+                        if (e.key === "Backspace" && !editTime) {
+                          e.preventDefault();
+                          if (!editContent) {
+                            saveEdit("", "");
+                          }
+                        }
                       }}
                       onBlur={(e) => {
                         // Don't save if focus is moving to the content textarea in same entry
                         if (e.relatedTarget === editContentRef.current) return;
                         saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                       }}
-                      className="w-20 bg-transparent text-xs font-mono text-muted-foreground outline-none border-b border-transparent focus:border-primary transition-colors"
+                      className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 caret-foreground mb-0.5"
                       placeholder="HH:mm"
                     />
                     <textarea
@@ -456,13 +479,18 @@ function TodayView({
                       onKeyDown={(e) => {
                         if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
                         if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveEdit(editTimeRef.current?.value, editContentRef.current?.value); }
+                        // Content empty + Backspace: jump to time field
+                        if (e.key === "Backspace" && !editContent) {
+                          e.preventDefault();
+                          editTimeRef.current?.focus();
+                        }
                       }}
                       onBlur={(e) => {
                         // Don't save if focus is moving to the time input in same entry
                         if (e.relatedTarget === editTimeRef.current) return;
                         saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                       }}
-                      className="w-full bg-transparent text-sm leading-relaxed resize-none outline-none min-h-[1.5em]"
+                      className="w-full bg-transparent text-sm whitespace-pre-wrap leading-relaxed resize-none outline-none border-0 min-h-[1.5em] caret-foreground"
                       rows={editContent.split("\n").length}
                     />
                   </div>
@@ -546,7 +574,7 @@ function SettingsView({
   ];
 
   return (
-    <div className="max-w-lg space-y-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
