@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "レポーター",
+    "loading": "読み込み中..."
+  },
+  "nav": {
+    "today": "今日",
+    "logs": "ログ",
+    "settings": "設定"
+  },
+  "today": {
+    "title": "今日の記録",
+    "empty": "今日はまだ記録がありません",
+    "emptyHint": "{shortcut} を押して快速記録"
+  },
+  "logs": {
+    "title": "ログ閲覧",
+    "date": "日付",
+    "noLogs": "ログはまだありません",
+    "noEntry": "この日の記録はありません"
+  },
+  "settings": {
+    "title": "設定",
+    "storage": {
+      "title": "ストレージ設定",
+      "path": "存储路径",
+      "browse": "参照",
+      "saved": "保存済み ✓",
+      "description": "ログとレポートはこのパスに保存されます"
+    },
+    "shortcut": {
+      "title": "ショートカット",
+      "quickRecord": "快速記録",
+      "closeRecord": "記録框を閉じる",
+      "hint": "快速記録框を呼び出すグローバルショートカットを設定、修飾キー(Ctrl/Alt/Shift)を1つ以上含む必要がある",
+      "showHintBar": "ショートカットヒントを表示",
+      "helpTitle": "ショートカット説明"
+    },
+    "appearance": {
+      "title": "外観",
+      "theme": "テーマ",
+      "system": "システムに従う",
+      "light": "ライト",
+      "dark": "ダーク",
+      "language": "言語",
+      "description": "アプリのテーマを選択"
+    }
+  },
+  "setup": {
+    "welcome": "レポーターへようこそ",
+    "description": "まずログとレポートを保存するフォルダを選択してください",
+    "storagePath": "存储路径",
+    "placeholder": "存储パスを選択または入力...",
+    "useDefault": "デフォルト路径を使用",
+    "submit": "開始",
+    "submitting": "設定中...",
+    "defaultShortcut": "デフォルトショートカット：{shortcut}、設定で変更可能",
+    "directoryStructure": "ディレクトリ構造："
+  },
+  "quickInput": {
+    "placeholder": "今の気持ちを記録...",
+    "hintSubmit": "送信",
+    "hintNewline": "改行",
+    "hintClose": "閉じる"
+  },
+  "shortcutRecorder": {
+    "modify": "変更",
+    "recordingHint": "組み合わせキーを押す · 修飾キー(Ctrl/Alt/Shift)を1つ以上含む · ESCでキャンセル",
+    "pressing": "組み合わせキーを押してください..."
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "close": "閉じる",
+    "confirm": "確認",
+    "yes": "はい",
+    "no": "いいえ"
+  },
+  "shortcuts": {
+    "title": "ショートカット説明",
+    "global": "グローバルショートカット",
+    "globalDesc": "快速記録ウィンドウを開く",
+    "quickInput": "快速記録ウィンドウ",
+    "enterSubmit": "Enter",
+    "enterSubmitDesc": "現在の内容を送信",
+    "shiftEnter": "Shift+Enter",
+    "shiftEnterDesc": "改行を挿入",
+    "escClose": "ESC",
+    "escCloseDesc": "ウィンドウを閉じる（破棄）",
+    "editTime": "時刻を編集",
+    "editTimeDesc": "時刻エリアをクリック後、Enterで内容にフォーカス",
+    "editSave": "編集を保存",
+    "editSaveDesc": "Ctrl+Enterで保存 · ESCでキャンセル"
+  }
+}

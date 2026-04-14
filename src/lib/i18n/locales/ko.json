@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "레포터",
+    "loading": "로딩 중..."
+  },
+  "nav": {
+    "today": "오늘",
+    "logs": "로그",
+    "settings": "설정"
+  },
+  "today": {
+    "title": "오늘의 기록",
+    "empty": "오늘은 아직 기록이 없습니다",
+    "emptyHint": "{shortcut} 을 눌러快速 기록"
+  },
+  "logs": {
+    "title": "로그 浏览",
+    "date": "날짜",
+    "noLogs": "아직 로그가 없습니다",
+    "noEntry": "이 날의 기록이 없습니다"
+  },
+  "settings": {
+    "title": "설정",
+    "storage": {
+      "title": "저장소 설정",
+      "path": "저장 경로",
+      "browse": "찾아보기",
+      "saved": "저장됨 ✓",
+      "description": "로그와 보고서는 이 경로에 저장됩니다"
+    },
+    "shortcut": {
+      "title": "단축키",
+      "quickRecord": "快速 기록",
+      "closeRecord": "기록 상자 닫기",
+      "hint": "快速 기록 상자를 여는 전역 단축키를 설정, 수정 키(Ctrl/Alt/Shift)를至少 하나 포함해야 합니다",
+      "showHintBar": "단축키 힌트 표시",
+      "helpTitle": "단축키 설명"
+    },
+    "appearance": {
+      "title": "외관",
+      "theme": "테마",
+      "system": "시스템 따르기",
+      "light": "라이트",
+      "dark": "다크",
+      "language": "언어",
+      "description": "앱의 테마 스타일을 선택하세요"
+    }
+  },
+  "setup": {
+    "welcome": "레포터에 오신 것을 환영합니다",
+    "description": "먼저 로그와 보고서를 저장할 폴더를 선택하세요",
+    "storagePath": "저장 경로",
+    "placeholder": "저장 경로를 선택하거나 입력하세요...",
+    "useDefault": "기본 경로 사용",
+    "submit": "시작하기",
+    "submitting": "설정 중...",
+    "defaultShortcut": "기본 단축키: {shortcut}, 설정에서 변경 가능",
+    "directoryStructure": "디렉토리 구조："
+  },
+  "quickInput": {
+    "placeholder": "지금 생각을 기록하세요...",
+    "hintSubmit": "제출",
+    "hintNewline": "줄바꿈",
+    "hintClose": "닫기"
+  },
+  "shortcutRecorder": {
+    "modify": "변경",
+    "recordingHint": "단축키 조합 누르기 · 수정 키(Ctrl/Alt/Shift)至少 하나 포함 필요 · ESC 취소",
+    "pressing": "단축키 조합을 누르세요..."
+  },
+  "common": {
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "close": "닫기",
+    "confirm": "확인",
+    "yes": "예",
+    "no": "아니오"
+  },
+  "shortcuts": {
+    "title": "단축키 설명",
+    "global": "전역 단축키",
+    "globalDesc": "快速 기록 창 열기",
+    "quickInput": "快速 기록 창",
+    "enterSubmit": "Enter",
+    "enterSubmitDesc": "현재 내용 제출",
+    "shiftEnter": "Shift+Enter",
+    "shiftEnterDesc": "줄바꿈 삽입",
+    "escClose": "ESC",
+    "escCloseDesc": "창 닫기（취소）",
+    "editTime": "시간 편집",
+    "editTimeDesc": "시간 영역 클릭 후 Enter로 내용에 포커스",
+    "editSave": "편집 저장",
+    "editSaveDesc": "Ctrl+Enter 저장 · ESC 취소"
+  }
+}

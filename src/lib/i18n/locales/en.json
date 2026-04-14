@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "Reporter",
+    "loading": "Loading..."
+  },
+  "nav": {
+    "today": "Today",
+    "logs": "Logs",
+    "settings": "Settings"
+  },
+  "today": {
+    "title": "Today's Log",
+    "empty": "No entries today",
+    "emptyHint": "Press {shortcut} for quick logging"
+  },
+  "logs": {
+    "title": "Log Browser",
+    "date": "Date",
+    "noLogs": "No logs yet",
+    "noEntry": "No entries for this day"
+  },
+  "settings": {
+    "title": "Settings",
+    "storage": {
+      "title": "Storage",
+      "path": "Storage Path",
+      "browse": "Browse",
+      "saved": "Saved ✓",
+      "description": "Logs and reports will be saved to this path"
+    },
+    "shortcut": {
+      "title": "Shortcuts",
+      "quickRecord": "Quick Record",
+      "closeRecord": "Close Record Box",
+      "hint": "Set the global shortcut to open the quick record window, must include at least one modifier key",
+      "showHintBar": "Show shortcut hints",
+      "helpTitle": "Shortcut Guide"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "system": "Follow System",
+      "light": "Light",
+      "dark": "Dark",
+      "language": "Language",
+      "description": "Choose the app's theme style"
+    }
+  },
+  "setup": {
+    "welcome": "Welcome to Reporter",
+    "description": "First, choose a folder to store your logs and reports",
+    "storagePath": "Storage Path",
+    "placeholder": "Select or enter storage path...",
+    "useDefault": "Use Default Path",
+    "submit": "Get Started",
+    "submitting": "Setting up...",
+    "defaultShortcut": "Default shortcut: {shortcut}, modifiable in settings",
+    "directoryStructure": "Directory structure:"
+  },
+  "quickInput": {
+    "placeholder": "Capture your thoughts...",
+    "hintSubmit": "submit",
+    "hintNewline": "newline",
+    "hintClose": "close"
+  },
+  "shortcutRecorder": {
+    "modify": "Change",
+    "recordingHint": "Press combo · Requires at least one modifier (Ctrl/Alt/Shift) · ESC to cancel",
+    "pressing": "Press combo..."
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "shortcuts": {
+    "title": "Shortcut Guide",
+    "global": "Global Shortcut",
+    "globalDesc": "Open quick record window",
+    "quickInput": "Quick Record Window",
+    "enterSubmit": "Enter",
+    "enterSubmitDesc": "Submit current content",
+    "shiftEnter": "Shift+Enter",
+    "shiftEnterDesc": "Insert newline",
+    "escClose": "ESC",
+    "escCloseDesc": "Close window (discard)",
+    "editTime": "Edit Time",
+    "editTimeDesc": "After clicking time area, press Enter to focus content",
+    "editSave": "Save Edit",
+    "editSaveDesc": "Ctrl+Enter to save · ESC to cancel"
+  }
+}

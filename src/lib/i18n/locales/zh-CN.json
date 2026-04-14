@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "打工人",
+    "loading": "加载中..."
+  },
+  "nav": {
+    "today": "今日",
+    "logs": "日志",
+    "settings": "设置"
+  },
+  "today": {
+    "title": "今日记录",
+    "empty": "今天还没有记录",
+    "emptyHint": "按 {shortcut} 快速记录"
+  },
+  "logs": {
+    "title": "日志浏览",
+    "date": "日期",
+    "noLogs": "暂无日志",
+    "noEntry": "这天没有记录"
+  },
+  "settings": {
+    "title": "设置",
+    "storage": {
+      "title": "存储设置",
+      "path": "存储路径",
+      "browse": "浏览",
+      "saved": "已保存 ✓",
+      "description": "日志和报告将保存在此路径下"
+    },
+    "shortcut": {
+      "title": "快捷键",
+      "quickRecord": "快速记录",
+      "closeRecord": "关闭记录框",
+      "hint": "设置用于呼出快速记录框的全局快捷键，必须包含至少一个修饰键",
+      "showHintBar": "显示快捷键提示",
+      "helpTitle": "快捷键说明"
+    },
+    "appearance": {
+      "title": "外观",
+      "theme": "主题",
+      "system": "跟随系统",
+      "light": "浅色",
+      "dark": "深色",
+      "language": "语言",
+      "description": "选择应用的主题风格"
+    }
+  },
+  "setup": {
+    "welcome": "欢迎使用打工人",
+    "description": "首先选择一个文件夹来存储你的日志和报告",
+    "storagePath": "存储路径",
+    "placeholder": "选择或输入存储路径...",
+    "useDefault": "使用默认路径",
+    "submit": "开始使用",
+    "submitting": "设置中...",
+    "defaultShortcut": "默认快捷键：{shortcut} 可在设置中修改",
+    "directoryStructure": "目录结构："
+  },
+  "quickInput": {
+    "placeholder": "记录此刻的想法...",
+    "hintSubmit": "提交",
+    "hintNewline": "换行",
+    "hintClose": "关闭"
+  },
+  "shortcutRecorder": {
+    "modify": "修改",
+    "recordingHint": "按下组合键 · 需包含至少一个修饰键 (Ctrl/Alt/Shift) · ESC 取消",
+    "pressing": "按下组合键..."
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "close": "关闭",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否"
+  },
+  "shortcuts": {
+    "title": "快捷键说明",
+    "global": "全局快捷键",
+    "globalDesc": "呼出快捷记录窗口",
+    "quickInput": "快捷记录窗口",
+    "enterSubmit": "Enter",
+    "enterSubmitDesc": "提交当前内容",
+    "shiftEnter": "Shift+Enter",
+    "shiftEnterDesc": "换行",
+    "escClose": "ESC",
+    "escCloseDesc": "关闭窗口（不保存）",
+    "editTime": "编辑时间",
+    "editTimeDesc": "点击时间区域后按 Enter 聚焦内容",
+    "editSave": "保存编辑",
+    "editSaveDesc": "Ctrl+Enter 保存 · ESC 取消"
+  }
+}
