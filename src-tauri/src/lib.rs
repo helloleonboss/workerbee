@@ -36,16 +36,14 @@ struct AppConfig {
 }
 
 impl AppConfig {
-    fn config_path(app: &tauri::AppHandle) -> PathBuf {
-        let data_dir = app
-            .path()
-            .app_data_dir()
-            .expect("failed to resolve app data dir");
-        data_dir.join(".config.json")
+    fn config_path() -> PathBuf {
+        dirs::home_dir()
+            .map(|p| p.join(".workerbee").join(".workerbee.config.json"))
+            .unwrap_or_else(|| PathBuf::from(".workerbee/.workerbee.config.json"))
     }
 
     fn load(app: &tauri::AppHandle) -> Option<Self> {
-        let path = Self::config_path(app);
+        let path = Self::config_path();
         if path.exists() {
             let content = fs::read_to_string(&path).ok()?;
             serde_json::from_str(&content).ok()
@@ -55,7 +53,7 @@ impl AppConfig {
     }
 
     fn save(&self, app: &tauri::AppHandle) -> Result<(), String> {
-        let path = Self::config_path(app);
+        let path = Self::config_path();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
@@ -76,8 +74,8 @@ impl AppConfig {
 
 fn default_storage_path() -> String {
     dirs::home_dir()
-        .map(|p| p.join("打工人").to_string_lossy().to_string())
-        .unwrap_or_else(|| "打工人".to_string())
+        .map(|p| p.join(".workerbee").to_string_lossy().to_string())
+        .unwrap_or_else(|| ".workerbee".to_string())
 }
 
 fn ensure_dirs(storage_path: &str) -> Result<(), String> {
@@ -377,7 +375,7 @@ pub fn run() {
             )?;
 
             let _tray = tauri::tray::TrayIconBuilder::new()
-                .tooltip("打工人")
+                .tooltip("WorkerBee")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)

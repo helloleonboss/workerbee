@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "打工人",
+    "name": "WorkerBee",
     "loading": "加载中..."
   },
   "nav": {
@@ -47,7 +47,7 @@
     }
   },
   "setup": {
-    "welcome": "欢迎使用打工人",
+    "welcome": "欢迎使用 WorkerBee",
     "description": "首先选择一个文件夹来存储你的日志和报告",
     "storagePath": "存储路径",
     "placeholder": "选择或输入存储路径...",

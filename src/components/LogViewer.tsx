@@ -199,7 +199,7 @@ export function LogViewer({
                   className="group py-3 px-1"
                 >
                   {editingIndex === i ? (
-                    <div className="space-y-1">
+                    <div>
                       <input
                         ref={editTimeRef}
                         value={editTime}
@@ -212,7 +212,7 @@ export function LogViewer({
                           if (e.relatedTarget === editContentRef.current) return;
                           saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                         }}
-                        className="w-20 bg-transparent text-xs font-mono text-muted-foreground outline-none border-b border-transparent focus:border-primary transition-colors"
+                        className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 mb-0.5 p-0 h-auto"
                         placeholder="HH:mm"
                       />
                       <textarea
@@ -227,7 +227,7 @@ export function LogViewer({
                           if (e.relatedTarget === editTimeRef.current) return;
                           saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                         }}
-                        className="w-full bg-transparent text-sm leading-relaxed resize-none outline-none min-h-[1.5em]"
+                        className="w-full bg-transparent text-sm whitespace-pre-wrap leading-relaxed resize-none outline-none border-0 min-h-[1.5em] p-0 caret-foreground"
                         rows={editContent.split("\n").length}
                       />
                     </div>

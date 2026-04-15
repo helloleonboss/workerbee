@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "./components/ui/select";
 import { Dialog, DialogTrigger } from "./components/ui/dialog";
-import { FolderOpen, FileText, Settings, Sun, HelpCircle, Keyboard } from "lucide-react";
+import { FolderOpen, FileText, Settings, Sun, HelpCircle } from "lucide-react";
 import { ShortcutsHelpDialog } from "./components/ShortcutsHelpDialog";
 
 type View = "today" | "logs" | "settings";
@@ -469,7 +469,7 @@ function TodayView({
                         if (e.relatedTarget === editContentRef.current) return;
                         saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                       }}
-                      className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 caret-foreground mb-0.5"
+                      className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 caret-foreground mb-0.5 p-0 h-auto"
                       placeholder="HH:mm"
                     />
                     <textarea
@@ -490,7 +490,7 @@ function TodayView({
                         if (e.relatedTarget === editTimeRef.current) return;
                         saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                       }}
-                      className="w-full bg-transparent text-sm whitespace-pre-wrap leading-relaxed resize-none outline-none border-0 min-h-[1.5em] caret-foreground"
+                      className="w-full bg-transparent text-sm whitespace-pre-wrap leading-relaxed resize-none outline-none border-0 min-h-[1.5em] p-0 caret-foreground"
                       rows={editContent.split("\n").length}
                     />
                   </div>
@@ -568,7 +568,7 @@ function SettingsView({
   }
 
   const themeOptions: { value: Theme; label: string }[] = [
-    { value: "system", label: t("settings.appearance.system") },
+    { value: "system", label: "System" },
     { value: "light", label: t("settings.appearance.light") },
     { value: "dark", label: t("settings.appearance.dark") },
   ];

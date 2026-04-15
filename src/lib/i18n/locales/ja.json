@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "レポーター",
+    "name": "WorkerBee",
     "loading": "読み込み中..."
   },
   "nav": {
@@ -47,7 +47,7 @@
     }
   },
   "setup": {
-    "welcome": "レポーターへようこそ",
+    "welcome": "WorkerBeeへようこそ",
     "description": "まずログとレポートを保存するフォルダを選択してください",
     "storagePath": "存储路径",
     "placeholder": "存储パスを選択または入力...",

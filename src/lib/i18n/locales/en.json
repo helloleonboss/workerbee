@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Reporter",
+    "name": "WorkerBee",
     "loading": "Loading..."
   },
   "nav": {
@@ -47,7 +47,7 @@
     }
   },
   "setup": {
-    "welcome": "Welcome to Reporter",
+    "welcome": "Welcome to WorkerBee",
     "description": "First, choose a folder to store your logs and reports",
     "storagePath": "Storage Path",
     "placeholder": "Select or enter storage path...",

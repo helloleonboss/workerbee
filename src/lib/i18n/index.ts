@@ -61,7 +61,7 @@ export function isValidLocale(lang: string): boolean {
 }
 
 export const SUPPORTED_LOCALES = [
-  { value: "system", label: "跟随系统" },
+  { value: "system", label: "System" },
   { value: "en", label: "English" },
   { value: "zh-CN", label: "简体中文" },
   { value: "ja", label: "日本語" },
