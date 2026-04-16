@@ -7,7 +7,6 @@
     "today": "今日",
     "logs": "日志",
     "reports": "报告",
-    "templates": "报告提示词",
     "settings": "设置"
   },
   "today": {
@@ -24,17 +23,30 @@
   "reports": {
     "title": "报告",
     "noReports": "暂无报告",
-    "selectReport": "选择一份报告查看",
+    "selectReport": "选择一份报告查看或生成新报告",
     "generate": "生成报告",
     "generating": "正在生成...",
     "dateRange": "日期范围",
-    "startDate": "开始日期",
-    "endDate": "结束日期",
-    "selectTemplate": "选择提示词",
-    "noTemplate": "请先创建提示词",
-    "noAgent": "请先在设置中配置 Agent 命令",
-    "generateSuccess": "报告生成成功",
-    "generateFailed": "生成失败：{error}"
+    "sourceFiles": "选择来源",
+    "logsGroup": "日志",
+    "reportsGroup": "已有报告",
+    "noSourceFiles": "暂无可用文件",
+    "selectedCount": "已选 {count} 项",
+    "selectSourceHint": "请选择至少一个来源文件",
+    "selectTemplate": "提示词",
+    "noTemplate": "无提示词",
+    "agent": "Agent",
+    "selectAgent": "选择 Agent",
+    "customAgent": "自定义命令...",
+    "agentPlaceholder": "输入命令，如：claude",
+    "manageTemplates": "管理提示词",
+    "templateManager": "提示词管理",
+    "newTemplate": "新建",
+    "clickToRename": "点击重命名",
+    "edit": "编辑",
+    "preview": "预览",
+    "editMode": "编辑模式",
+    "previewMode": "预览模式"
   },
   "templates": {
     "title": "报告提示词",
@@ -71,15 +83,9 @@
       "description": "选择应用的主题风格"
     },
     "agent": {
-      "title": "Agent 命令",
-      "description": "配置用于生成报告的 CLI 工具命令，日志内容将通过 stdin 传入",
-      "example": "示例：claude、aichat、ollama run llama3.2",
-      "selectAgent": "选择 Agent",
-      "selectPlaceholder": "检测可用工具中...",
-      "custom": "自定义命令...",
-      "customLabel": "输入自定义命令",
-      "detectedHint": "已检测到本机可用的 AI 工具",
-      "noneDetected": "未检测到常用 AI 工具，请手动配置"
+      "title": "Agent",
+      "background": "后台生成",
+      "backgroundHint": "开启后报告生成在后台运行，关闭则前台等待结果（方便调试）"
     }
   },
   "setup": {

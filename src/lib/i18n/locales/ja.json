@@ -7,7 +7,6 @@
     "today": "今日",
     "logs": "ログ",
     "reports": "レポート",
-    "templates": "プロンプト",
     "settings": "設定"
   },
   "today": {
@@ -24,17 +23,30 @@
   "reports": {
     "title": "レポート",
     "noReports": "レポートはまだありません",
-    "selectReport": "レポートを選択して表示",
+    "selectReport": "レポートを選択または新規生成",
     "generate": "レポート生成",
     "generating": "生成中...",
     "dateRange": "日付範囲",
-    "startDate": "開始日",
-    "endDate": "終了日",
-    "selectTemplate": "プロンプトを選択",
-    "noTemplate": "まずプロンプトを作成してください",
-    "noAgent": "設定でAgentコマンドを設定してください",
-    "generateSuccess": "レポートを生成しました",
-    "generateFailed": "生成失敗：{error}"
+    "sourceFiles": "ソース選択",
+    "logsGroup": "ログ",
+    "reportsGroup": "既存レポート",
+    "noSourceFiles": "利用可能なファイルなし",
+    "selectedCount": "{count} 件選択",
+    "selectSourceHint": "ソースファイルを少なくとも1つ選択してください",
+    "selectTemplate": "プロンプト",
+    "noTemplate": "プロンプトなし",
+    "agent": "Agent",
+    "selectAgent": "Agent選択",
+    "customAgent": "カスタムコマンド...",
+    "agentPlaceholder": "コマンドを入力、例：claude",
+    "manageTemplates": "プロンプト管理",
+    "templateManager": "プロンプトマネージャ",
+    "newTemplate": "新規",
+    "clickToRename": "クリックして名前変更",
+    "edit": "編集",
+    "preview": "プレビュー",
+    "editMode": "編集モード",
+    "previewMode": "プレビューモード"
   },
   "templates": {
     "title": "プロンプト",
@@ -71,15 +83,9 @@
       "description": "アプリのテーマを選択"
     },
     "agent": {
-      "title": "Agent コマンド",
-      "description": "レポート生成用のCLIツールを設定。ログ内容はstdinにパイプされます。",
-      "example": "例：claude、aichat、ollama run llama3.2",
-      "selectAgent": "Agent選択",
-      "selectPlaceholder": "ツールを検出中...",
-      "custom": "カスタムコマンド...",
-      "customLabel": "カスタムコマンドを入力",
-      "detectedHint": "システムでAIツールを検出しました",
-      "noneDetected": "一般的なAIツールが検出されませんでした。手動で設定してください"
+      "title": "Agent",
+      "background": "バックグラウンド生成",
+      "backgroundHint": "オンにするとバックグラウンドでレポート生成。オフにすると結果を待機（デバッグに便利）"
     }
   },
   "setup": {

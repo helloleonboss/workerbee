@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::Mutex;
 use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager};
@@ -50,7 +49,7 @@ impl AppConfig {
             .unwrap_or_else(|| PathBuf::from(".workerbee/.workerbee.config.json"))
     }
 
-    fn load(app: &tauri::AppHandle) -> Option<Self> {
+    fn load(_app: &tauri::AppHandle) -> Option<Self> {
         let path = Self::config_path();
         if path.exists() {
             let content = fs::read_to_string(&path).ok()?;
@@ -60,7 +59,7 @@ impl AppConfig {
         }
     }
 
-    fn save(&self, app: &tauri::AppHandle) -> Result<(), String> {
+    fn save(&self, _app: &tauri::AppHandle) -> Result<(), String> {
         let path = Self::config_path();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -77,6 +76,7 @@ impl AppConfig {
             show_hint_bar: default_show_hint_bar(),
             locale: default_locale(),
             agent_command: default_agent_command(),
+            agent_background: default_agent_background(),
         })
     }
 }
@@ -297,26 +297,29 @@ fn write_template(app: tauri::AppHandle, filename: String, content: String) -> R
 #[tauri::command]
 async fn generate_report(
     app: tauri::AppHandle,
-    date_start: String,
-    date_end: String,
+    source_files: Vec<String>,
     template_name: String,
 ) -> Result<String, String> {
     let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
 
     // Check if agent_command is configured
     if config.agent_command.is_empty() {
-        return Err("请先在设置中配置 Agent 命令".to_string());
+        return Err("请先配置 Agent 命令".to_string());
+    }
+
+    if source_files.is_empty() {
+        return Err("请选择至少一个来源文件".to_string());
     }
 
     // Parse agent_command - split on whitespace
     let parts: Vec<&str> = config.agent_command.split_whitespace().collect();
     if parts.is_empty() {
-        return Err("请先在设置中配置 Agent 命令".to_string());
+        return Err("请先配置 Agent 命令".to_string());
     }
     let cmd = parts[0];
     let args: Vec<&str> = parts[1..].to_vec();
 
-    // Read template content (optional - if template_name is empty, use logs directly)
+    // Read template content (optional)
     let template_content = if template_name.is_empty() {
         String::new()
     } else {
@@ -330,46 +333,63 @@ async fn generate_report(
         }
     };
 
-    // Read all log files in date range
-    let logs_dir = PathBuf::from(&config.storage_path).join("logs");
-    if !logs_dir.exists() {
-        return Err("日志目录不存在".to_string());
+    // Read source files. Each source_file entry is like "logs/2026-04-14" or "reports/report-2026-04-14"
+    // Format: "<subdir>/<filename_without_ext>"
+    let mut all_source = String::new();
+    let mut sorted_sources: Vec<(String, String)> = Vec::new();
+
+    for sf in &source_files {
+        let parts_vec: Vec<&str> = sf.splitn(2, '/').collect();
+        if parts_vec.len() != 2 {
+            return Err(format!("无效的文件路径: {}", sf));
+        }
+        let (subdir, name) = (parts_vec[0], parts_vec[1]);
+        if !["logs", "reports"].contains(&subdir) {
+            return Err(format!("无效的目录: {}", subdir));
+        }
+        let file_path = PathBuf::from(&config.storage_path)
+            .join(subdir)
+            .join(format!("{}.md", name));
+        if !file_path.exists() {
+            return Err(format!("文件不存在: {}", sf));
+        }
+        let content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+        sorted_sources.push((sf.clone(), content));
     }
 
-    let mut all_logs = String::new();
-    let entries = fs::read_dir(&logs_dir).map_err(|e| e.to_string())?;
+    // Sort by source path for consistent ordering
+    sorted_sources.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let mut log_files: Vec<(String, String)> = Vec::new();
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.ends_with(".md") {
-            let date = name.trim_end_matches(".md").to_string();
-            // Check if date is within range (inclusive)
-            if date >= date_start && date <= date_end {
-                let content = fs::read_to_string(entry.path()).map_err(|e| e.to_string())?;
-                log_files.push((date, content));
-            }
+    for (path, content) in &sorted_sources {
+        if !all_source.is_empty() {
+            all_source.push_str("\n\n---\n\n");
         }
-    }
-
-    // Sort by date
-    log_files.sort_by(|a, b| a.0.cmp(&b.0));
-
-    for (_, content) in &log_files {
-        if !all_logs.is_empty() {
-            all_logs.push_str("\n\n---\n\n");
-        }
-        all_logs.push_str(content);
+        all_source.push_str(&format!("# {}\n\n{}", path, content));
     }
 
     // Build prompt
     let prompt = if template_content.is_empty() {
-        all_logs
+        all_source
     } else {
-        format!("{}\n\n---\n\n# 日志内容\n\n{}", template_content, all_logs)
+        format!("{}\n\n---\n\n# 输入内容\n\n{}", template_content, all_source)
     };
 
     // Execute agent command
+    // On Windows, use `cmd /C` to support .ps1/.cmd scripts (e.g. claude, opencode)
+    #[cfg(windows)]
+    let mut child = {
+        let full_cmd = format!("{} {}", cmd, args.join(" "));
+        Command::new("cmd")
+            .arg("/C")
+            .arg(&full_cmd)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("启动命令失败: {}", e))?
+    };
+
+    #[cfg(not(windows))]
     let mut child = Command::new(cmd)
         .args(&args)
         .stdin(Stdio::piped())
@@ -378,29 +398,42 @@ async fn generate_report(
         .spawn()
         .map_err(|e| format!("启动命令失败: {}", e))?;
 
-    // Write prompt to stdin
+    // Write prompt to stdin and close it
     if let Some(mut stdin) = child.stdin.take() {
         std::thread::spawn(move || {
             let _ = stdin.write_all(prompt.as_bytes());
+            // Drop stdin to close the pipe — signals EOF to the child process
         });
     }
 
-    // Wait for child to complete and capture output
+    // Read stdout with size limit to prevent memory exhaustion
+    const MAX_OUTPUT_SIZE: usize = 2 * 1024 * 1024; // 2 MB
+
     let output = child
         .wait_with_output()
         .map_err(|e| format!("执行命令失败: {}", e))?;
 
-    // Check exit code
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("命令执行失败: {}", stderr));
     }
 
-    // Get stdout
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    // Truncate output if too large
+    let stdout_len = output.stdout.len();
+    let stdout_buf: Vec<u8> = if stdout_len > MAX_OUTPUT_SIZE {
+        output.stdout[..MAX_OUTPUT_SIZE].to_vec()
+    } else {
+        output.stdout
+    };
 
-    // Generate report filename
-    let filename = format!("report-{}-{}", date_start, date_end);
+    let mut stdout = String::from_utf8_lossy(&stdout_buf).to_string();
+    if stdout_len > MAX_OUTPUT_SIZE {
+        stdout.push_str("\n\n---\n[输出超过 2MB，已截断]");
+    }
+
+    // Generate report filename with timestamp
+    let now = chrono::Local::now();
+    let filename = format!("report-{}", now.format("%Y-%m-%d-%H%M%S"));
 
     // Save report
     let reports_dir = PathBuf::from(&config.storage_path).join("reports");

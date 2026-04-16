@@ -11,6 +11,7 @@ export interface AppConfig {
   show_hint_bar?: boolean;
   locale?: string;
   agent_command?: string;
+  agent_background?: boolean;
 }
 
 export async function getConfig(): Promise<AppConfig | null> {
@@ -69,8 +70,8 @@ export async function deleteTemplate(filename: string): Promise<void> {
   return invoke("delete_template", { filename });
 }
 
-export async function generateReport(dateStart: string, dateEnd: string, templateName: string): Promise<string> {
-  return invoke<string>("generate_report", { dateStart, dateEnd, templateName });
+export async function generateReport(sourceFiles: string[], templateName: string): Promise<string> {
+  return invoke<string>("generate_report", { sourceFiles, templateName });
 }
 
 export async function chooseFolder(): Promise<string | null> {

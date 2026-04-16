@@ -7,7 +7,6 @@
     "today": "오늘",
     "logs": "로그",
     "reports": "보고서",
-    "templates": "프롬프트",
     "settings": "설정"
   },
   "today": {
@@ -24,17 +23,30 @@
   "reports": {
     "title": "보고서",
     "noReports": "보고서가 없습니다",
-    "selectReport": "보고서를 선택하여 보기",
+    "selectReport": "보고서를 선택하거나 새로 생성",
     "generate": "보고서 생성",
     "generating": "생성 중...",
     "dateRange": "날짜 범위",
-    "startDate": "시작일",
-    "endDate": "종료일",
-    "selectTemplate": "프롬프트 선택",
-    "noTemplate": "먼저 프롬프트를 만드세요",
-    "noAgent": "설정에서 Agent 명령을 구성하세요",
-    "generateSuccess": "보고서 생성됨",
-    "generateFailed": "생성 실패：{error}"
+    "sourceFiles": "소스 선택",
+    "logsGroup": "로그",
+    "reportsGroup": "기존 보고서",
+    "noSourceFiles": "사용 가능한 파일 없음",
+    "selectedCount": "{count}개 선택됨",
+    "selectSourceHint": "최소 하나의 소스 파일을 선택하세요",
+    "selectTemplate": "프롬프트",
+    "noTemplate": "프롬프트 없음",
+    "agent": "Agent",
+    "selectAgent": "Agent 선택",
+    "customAgent": "사용자 정의 명령...",
+    "agentPlaceholder": "명령 입력, 예: claude",
+    "manageTemplates": "프롬프트 관리",
+    "templateManager": "프롬프트 관리자",
+    "newTemplate": "새로 만들기",
+    "clickToRename": "클릭하여 이름 변경",
+    "edit": "편집",
+    "preview": "미리보기",
+    "editMode": "편집 모드",
+    "previewMode": "미리보기 모드"
   },
   "templates": {
     "title": "프롬프트",
@@ -71,15 +83,9 @@
       "description": "앱의 테마 스타일을 선택하세요"
     },
     "agent": {
-      "title": "Agent 명령",
-      "description": "보고서 생성을 위한 CLI 도구를 구성합니다. 로그 내용이 stdin으로 파이프됩니다.",
-      "example": "예：claude、aichat、ollama run llama3.2",
-      "selectAgent": "Agent 선택",
-      "selectPlaceholder": "도구 감지 중...",
-      "custom": "사용자 정의 명령...",
-      "customLabel": "사용자 정의 명령 입력",
-      "detectedHint": "시스템에서 AI 도구를 감지했습니다",
-      "noneDetected": "일반적인 AI 도구가 감지되지 않았습니다. 수동으로 설정하세요"
+      "title": "Agent",
+      "background": "백그라운드 생성",
+      "backgroundHint": "켜면 백그라운드에서 보고서 생성. 끄면 결과를 대기(디버깅에 유리)"
     }
   },
   "setup": {

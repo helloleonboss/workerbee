@@ -10,8 +10,6 @@ import {
   DEFAULT_SHORTCUT,
   type AppConfig,
   type Theme,
-  detectAgents,
-  type DetectedAgent,
 } from "./lib/api";
 import { formatCurrentDate, parseLogEntries, type LogEntry } from "./lib/utils";
 import { t, initLocale, setLocale, SUPPORTED_LOCALES } from "./lib/i18n";
@@ -31,12 +29,11 @@ import {
   SelectValue,
 } from "./components/ui/select";
 import { Dialog, DialogTrigger } from "./components/ui/dialog";
-import { FolderOpen, FileText, Settings, Sun, HelpCircle, Zap } from "lucide-react";
+import { FolderOpen, FileText, Settings, Sun, HelpCircle, Terminal } from "lucide-react";
 import { ShortcutsHelpDialog } from "./components/ShortcutsHelpDialog";
 import { ReportsView } from "./components/ReportsView";
-import { TemplatesView } from "./components/TemplatesView";
 
-type View = "today" | "logs" | "reports" | "templates" | "settings";
+type View = "today" | "logs" | "reports" | "settings";
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -238,12 +235,6 @@ function App() {
                 {t("nav.reports")}
               </TabsTrigger>
               <TabsTrigger
-                active={view === "templates"}
-                onClick={() => setView("templates")}
-              >
-                {t("nav.templates")}
-              </TabsTrigger>
-              <TabsTrigger
                 active={view === "settings"}
                 onClick={() => setView("settings")}
               >
@@ -271,10 +262,6 @@ function App() {
 
           <TabsContent active={view === "reports"} className="flex-1 overflow-hidden">
             <ReportsView />
-          </TabsContent>
-
-          <TabsContent active={view === "templates"} className="flex-1 overflow-hidden">
-            <TemplatesView />
           </TabsContent>
 
           <TabsContent active={view === "settings"} className="flex-1 overflow-auto flex justify-center p-4">
@@ -571,34 +558,13 @@ function SettingsView({
   const [theme, setTheme] = useState<Theme>(config.theme || "system");
   const [showHintBar, setShowHintBar] = useState(config.show_hint_bar ?? true);
   const [locale, setLocaleState] = useState(config.locale || "system");
-  const [agentCommand, setAgentCommand] = useState(config.agent_command || "");
-  const [detectedAgents, setDetectedAgents] = useState<DetectedAgent[]>([]);
-  const [useCustomAgent, setUseCustomAgent] = useState(false);
+  const [agentBackground, setAgentBackground] = useState(config.agent_background ?? false);
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Detect available agents on mount
-  useEffect(() => {
-    async function detect() {
-      try {
-        const agents = await detectAgents();
-        setDetectedAgents(agents);
-        const current = config.agent_command || "";
-        if (current) {
-          const baseCmd = current.split(/\s+/)[0];
-          const isKnown = agents.some(a => a.available && a.command === baseCmd);
-          setUseCustomAgent(!isKnown);
-        }
-      } catch (e) {
-        console.error("Failed to detect agents:", e);
-      }
-    }
-    detect();
-  }, []);
-
   // Auto-save whenever config changes
-  function persistConfig(path: string, sc: string, th: Theme, shb?: boolean, lc?: string, ac?: string) {
-    const newConfig: AppConfig = { storage_path: path, shortcut: sc, theme: th, show_hint_bar: shb, locale: lc, agent_command: ac };
+  function persistConfig(path: string, sc: string, th: Theme, shb?: boolean, lc?: string) {
+    const newConfig: AppConfig = { storage_path: path, shortcut: sc, theme: th, show_hint_bar: shb, locale: lc, agent_command: config.agent_command, agent_background: config.agent_background };
     onConfigChange(newConfig);
     if (savedTimeout.current) clearTimeout(savedTimeout.current);
     savedTimeout.current = setTimeout(async () => {
@@ -623,7 +589,7 @@ function SettingsView({
       if (selected) {
         const path = typeof selected === "string" ? selected : selected;
         setStoragePath(path as string);
-        persistConfig(path as string, shortcut, theme, showHintBar, locale, agentCommand);
+        persistConfig(path as string, shortcut, theme, showHintBar, locale);
       }
     } catch (e) {
       console.error("Failed to choose folder:", e);
@@ -652,7 +618,7 @@ function SettingsView({
               value={storagePath}
               onChange={(e) => {
                 setStoragePath(e.target.value);
-                persistConfig(e.target.value, shortcut, theme, showHintBar, locale, agentCommand);
+                persistConfig(e.target.value, shortcut, theme, showHintBar, locale);
               }}
               className="flex-1"
             />
@@ -688,7 +654,7 @@ function SettingsView({
               value={shortcut}
               onChange={(s) => {
                 setShortcut(s);
-                persistConfig(storagePath, s, theme, showHintBar, locale, agentCommand);
+                persistConfig(storagePath, s, theme, showHintBar, locale);
               }}
             />
             <p className="text-xs text-muted-foreground">
@@ -703,7 +669,7 @@ function SettingsView({
               onClick={() => {
                 const newVal = !showHintBar;
                 setShowHintBar(newVal);
-                persistConfig(storagePath, shortcut, theme, newVal, locale, agentCommand);
+                persistConfig(storagePath, shortcut, theme, newVal, locale);
               }}
             >
               {showHintBar ? t("common.yes") : t("common.no")}
@@ -726,7 +692,7 @@ function SettingsView({
               value={theme}
               onValueChange={(val) => {
                 setTheme(val as Theme);
-                persistConfig(storagePath, shortcut, val as Theme, showHintBar, locale, agentCommand);
+                persistConfig(storagePath, shortcut, val as Theme, showHintBar, locale);
               }}
             >
               <SelectTrigger className="w-[160px]">
@@ -749,7 +715,7 @@ function SettingsView({
               onValueChange={(val) => {
                 setLocaleState(val);
                 setLocale(val === "system" ? "system" : val);
-                persistConfig(storagePath, shortcut, theme, showHintBar, val, agentCommand);
+                persistConfig(storagePath, shortcut, theme, showHintBar, val);
               }}
             >
               <SelectTrigger className="w-[160px]">
@@ -770,87 +736,49 @@ function SettingsView({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5" />
+            <Terminal className="w-5 h-5" />
             {t("settings.agent.title")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {/* Detected agents dropdown */}
-          <div className="space-y-1">
-            <label className="text-sm font-medium">{t("settings.agent.selectAgent")}</label>
-            <Select
-              value={(() => {
-                if (useCustomAgent) return "__custom__";
-                const baseCmd = agentCommand.split(/\s+/)[0];
-                if (!baseCmd) return "";
-                const available = detectedAgents.filter(a => a.available);
-                if (available.some(a => a.command === baseCmd)) return baseCmd;
-                return "__custom__";
-              })()}
-              onValueChange={(val) => {
-                if (val === "__custom__") {
-                  setUseCustomAgent(true);
-                  setAgentCommand("");
-                } else {
-                  setUseCustomAgent(false);
-                  setAgentCommand(val);
-                  persistConfig(storagePath, shortcut, theme, showHintBar, locale, val);
-                }
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm">{t("settings.agent.background")}</span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t("settings.agent.backgroundHint")}
+              </p>
+            </div>
+            <Button
+              variant={agentBackground ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                const newVal = !agentBackground;
+                setAgentBackground(newVal);
+                const newConfig: AppConfig = {
+                  storage_path: storagePath,
+                  shortcut,
+                  theme,
+                  show_hint_bar: showHintBar,
+                  locale,
+                  agent_command: config.agent_command,
+                  agent_background: newVal,
+                };
+                onConfigChange(newConfig);
+                if (savedTimeout.current) clearTimeout(savedTimeout.current);
+                savedTimeout.current = setTimeout(async () => {
+                  try {
+                    await saveConfig(newConfig);
+                    setSaved(true);
+                    setTimeout(() => setSaved(false), 1500);
+                  } catch (e) {
+                    console.error("Failed to save config:", e);
+                  }
+                }, 300);
               }}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("settings.agent.selectPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {detectedAgents.filter(a => a.available).map((agent) => (
-                  <SelectItem key={agent.command} value={agent.command}>
-                    {agent.name}
-                  </SelectItem>
-                ))}
-                {detectedAgents.filter(a => a.available).length > 0 && (
-                  <SelectItem value="__separator__" disabled>
-                    ──────────
-                  </SelectItem>
-                )}
-                <SelectItem value="__custom__">
-                  {t("settings.agent.custom")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              {agentBackground ? t("common.yes") : t("common.no")}
+            </Button>
           </div>
-
-          {/* Custom command input — shown when "Custom" is selected */}
-          {useCustomAgent && (
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">{t("settings.agent.customLabel")}</label>
-              <Input
-                value={agentCommand}
-                onChange={(e) => {
-                  setAgentCommand(e.target.value);
-                  persistConfig(storagePath, shortcut, theme, showHintBar, locale, e.target.value);
-                }}
-                placeholder={t("settings.agent.example")}
-                className="flex-1"
-              />
-            </div>
-          )}
-
-          {/* Description */}
-          <p className="text-xs text-muted-foreground">
-            {t("settings.agent.description")}
-          </p>
-
-          {/* Detection status hint */}
-          {detectedAgents.length > 0 && detectedAgents.some(a => a.available) && (
-            <p className="text-xs text-muted-foreground">
-              {t("settings.agent.detectedHint")}
-            </p>
-          )}
-          {detectedAgents.length > 0 && !detectedAgents.some(a => a.available) && (
-            <p className="text-xs text-muted-foreground">
-              {t("settings.agent.noneDetected")}
-            </p>
-          )}
         </CardContent>
       </Card>
     </div>

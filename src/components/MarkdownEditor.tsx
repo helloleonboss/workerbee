@@ -6,6 +6,8 @@ import CodeMirror, {
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { EditorState } from "@codemirror/state";
+import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
 import { highlightActiveLine, highlightSpecialChars, drawSelection } from "@codemirror/view";
 import { history } from "@codemirror/commands";
 import { cn } from "@/lib/utils";
@@ -17,6 +19,44 @@ export interface MarkdownEditorProps {
   className?: string;
   autoFocus?: boolean;
   onBlur?: () => void;
+  variant?: "default" | "bordered";
+}
+
+function createMarkdownHighlight(isDark: boolean) {
+  const headingColor = isDark ? "oklch(0.85 0.08 250)" : "oklch(0.45 0.12 260)";
+  const codeColor = isDark ? "oklch(0.78 0.1 160)" : "oklch(0.42 0.12 160)";
+  const monoFont = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
+  return HighlightStyle.define([
+    // Headings
+    { tag: t.heading1, color: headingColor, fontWeight: "700", fontSize: "1.4em", lineHeight: "1.8" },
+    { tag: t.heading2, color: headingColor, fontWeight: "700", fontSize: "1.25em", lineHeight: "1.7" },
+    { tag: t.heading3, color: headingColor, fontWeight: "600", fontSize: "1.1em" },
+    { tag: t.heading4, color: headingColor, fontWeight: "600" },
+    { tag: t.heading5, color: headingColor, fontWeight: "600" },
+    { tag: t.heading6, color: headingColor, fontWeight: "600" },
+    // Emphasis
+    { tag: t.strong, fontWeight: "700" },
+    { tag: t.emphasis, fontStyle: "italic" },
+    { tag: t.strikethrough, textDecoration: "line-through", color: isDark ? "oklch(0.6 0 0)" : "oklch(0.5 0 0)" },
+    // Links
+    { tag: t.link, color: isDark ? "oklch(0.75 0.12 250)" : "oklch(0.5 0.15 250)", textDecoration: "underline" },
+    { tag: t.url, color: isDark ? "oklch(0.65 0.08 250)" : "oklch(0.45 0.1 250)" },
+    // Code
+    { tag: t.monospace, fontFamily: monoFont, fontSize: "0.9em", color: codeColor },
+    // Quotes
+    { tag: t.quote, color: isDark ? "oklch(0.7 0 0)" : "oklch(0.45 0 0)", fontStyle: "italic" },
+    // Lists
+    { tag: t.list, color: isDark ? "oklch(0.75 0.1 250)" : "oklch(0.5 0.1 250)" },
+    // Horizontal rule
+    { tag: t.contentSeparator, color: isDark ? "oklch(0.5 0 0)" : "oklch(0.7 0 0)" },
+    // Processing/meta instruction
+    { tag: t.processingInstruction, color: isDark ? "oklch(0.5 0 0)" : "oklch(0.6 0 0)" },
+    // Meta (frontmatter)
+    { tag: t.meta, color: isDark ? "oklch(0.55 0 0)" : "oklch(0.5 0 0)" },
+    // Comment
+    { tag: t.comment, color: isDark ? "oklch(0.55 0 0)" : "oklch(0.55 0 0)", fontStyle: "italic" },
+  ]);
 }
 
 const markdownExtensions = [
@@ -32,44 +72,46 @@ const markdownExtensions = [
 ];
 
 function createTheme(isDark: boolean) {
-  const foreground = isDark ? "var(--color-foreground)" : "var(--color-foreground)";
-  const mutedForeground = isDark
-    ? "var(--color-muted-foreground)"
-    : "var(--color-muted-foreground)";
-  const background = "transparent";
-  const accent = isDark ? "oklch(0.3 0 0)" : "oklch(0.95 0 0)";
+  const foreground = "var(--color-foreground)";
+  const mutedForeground = "var(--color-muted-foreground)";
+  const background = isDark ? "oklch(0.17 0 0)" : "oklch(0.985 0 0)";
+  const activeLineBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.95 0 0)";
 
   return EditorView.theme(
     {
       "&": {
-        height: "auto",
+        height: "100%",
         backgroundColor: background,
         color: foreground,
         fontSize: "14px",
         fontFamily: "inherit",
+        borderRadius: "0",
       },
       ".cm-content": {
         caretColor: foreground,
-        padding: "0",
+        padding: "16px 20px",
         whitespace: "pre-wrap",
         wordBreak: "break-word",
       },
       ".cm-line": {
-        padding: "0",
-        lineHeight: "1.625",
+        padding: "0 4px",
+        lineHeight: "1.75",
       },
       ".cm-scroller": {
-        overflow: "visible",
+        overflow: "auto",
         fontFamily: "inherit",
+        maxHeight: "100%",
+        padding: "0",
       },
       ".cm-focused": {
         outline: "none",
       },
       ".cm-activeLine": {
-        backgroundColor: "transparent",
+        backgroundColor: activeLineBg,
+        borderRadius: "3px",
       },
       ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-        backgroundColor: accent,
+        backgroundColor: isDark ? "oklch(0.35 0 0)" : "oklch(0.85 0 0)",
       },
       ".cm-cursor": {
         borderLeftColor: foreground,
@@ -81,44 +123,6 @@ function createTheme(isDark: boolean) {
       ".cm-placeholder": {
         color: mutedForeground,
         fontStyle: "italic",
-      },
-      // Markdown syntax highlighting
-      ".cm-header": {
-        color: foreground,
-        fontWeight: "600",
-      },
-      ".cm-strong": {
-        fontWeight: "700",
-      },
-      ".cm-em": {
-        fontStyle: "italic",
-      },
-      ".cm-link": {
-        color: isDark ? "oklch(0.7 0 0)" : "oklch(0.4 0.15 260)",
-        textDecoration: "underline",
-      },
-      ".cm-url": {
-        color: mutedForeground,
-      },
-      ".cm-code": {
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-        fontSize: "13px",
-        backgroundColor: accent,
-        padding: "0.125em 0.25em",
-        borderRadius: "0.25rem",
-      },
-      ".cm-quote": {
-        color: mutedForeground,
-        fontStyle: "italic",
-        borderLeft: "3px solid " + (isDark ? "oklch(0.3 0 0)" : "oklch(0.9 0 0)"),
-        paddingLeft: "0.75em",
-        marginLeft: "0",
-      },
-      ".cm-list": {
-        color: foreground,
-      },
-      ".cm-hr": {
-        color: mutedForeground,
       },
     },
     { dark: isDark }
@@ -132,6 +136,7 @@ export function MarkdownEditor({
   className,
   autoFocus = false,
   onBlur,
+  variant = "bordered",
 }: MarkdownEditorProps) {
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const isEditable = onChange !== undefined;
@@ -143,15 +148,23 @@ export function MarkdownEditor({
     [onChange]
   );
 
+  const isDark = useMemo(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  }, []);
+
   const extensions = useMemo(() => {
-    const exts = [...markdownExtensions];
+    const exts = [
+      ...markdownExtensions,
+      syntaxHighlighting(createMarkdownHighlight(isDark)),
+    ];
 
     if (!isEditable) {
       exts.push(EditorState.readOnly.of(true));
     }
 
     return exts;
-  }, [isEditable]);
+  }, [isEditable, isDark]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -169,15 +182,17 @@ export function MarkdownEditor({
     [onBlur]
   );
 
-  const isDark = useMemo(() => {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.classList.contains("dark");
-  }, []);
-
   const theme = useMemo(() => createTheme(isDark), [isDark]);
 
+  const containerClasses = variant === "bordered"
+    ? "border border-border rounded-md bg-card overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1 focus-within:ring-offset-background"
+    : "";
+
   return (
-    <div className={cn("relative", className)} onKeyDown={handleKeyDown}>
+    <div
+      className={cn("relative h-full", containerClasses, className)}
+      onKeyDown={handleKeyDown}
+    >
       <CodeMirror
         ref={editorRef}
         value={value}
@@ -188,7 +203,7 @@ export function MarkdownEditor({
         extensions={extensions}
         theme={theme}
         basicSetup={false}
-        className="text-sm"
+        className="text-sm h-full"
       />
     </div>
   );
