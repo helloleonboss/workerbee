@@ -10,6 +10,7 @@ export interface AppConfig {
   theme?: Theme;
   show_hint_bar?: boolean;
   locale?: string;
+  agent_command?: string;
 }
 
 export async function getConfig(): Promise<AppConfig | null> {
@@ -48,6 +49,40 @@ export async function readReport(filename: string): Promise<string> {
   return invoke<string>("read_report", { filename });
 }
 
+export async function writeReport(filename: string, content: string): Promise<void> {
+  return invoke("write_report", { filename, content });
+}
+
+export async function listTemplates(): Promise<string[]> {
+  return invoke<string[]>("list_templates");
+}
+
+export async function readTemplate(filename: string): Promise<string> {
+  return invoke<string>("read_template", { filename });
+}
+
+export async function writeTemplate(filename: string, content: string): Promise<void> {
+  return invoke("write_template", { filename, content });
+}
+
+export async function deleteTemplate(filename: string): Promise<void> {
+  return invoke("delete_template", { filename });
+}
+
+export async function generateReport(dateStart: string, dateEnd: string, templateName: string): Promise<string> {
+  return invoke<string>("generate_report", { dateStart, dateEnd, templateName });
+}
+
 export async function chooseFolder(): Promise<string | null> {
   return invoke<string | null>("choose_folder");
+}
+
+export interface DetectedAgent {
+  name: string;
+  command: string;
+  available: boolean;
+}
+
+export async function detectAgents(): Promise<DetectedAgent[]> {
+  return invoke<DetectedAgent[]>("detect_agents");
 }

@@ -6,6 +6,8 @@
   "nav": {
     "today": "今日",
     "logs": "日志",
+    "reports": "报告",
+    "templates": "报告提示词",
     "settings": "设置"
   },
   "today": {
@@ -18,6 +20,29 @@
     "date": "日期",
     "noLogs": "暂无日志",
     "noEntry": "这天没有记录"
+  },
+  "reports": {
+    "title": "报告",
+    "noReports": "暂无报告",
+    "selectReport": "选择一份报告查看",
+    "generate": "生成报告",
+    "generating": "正在生成...",
+    "dateRange": "日期范围",
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "selectTemplate": "选择提示词",
+    "noTemplate": "请先创建提示词",
+    "noAgent": "请先在设置中配置 Agent 命令",
+    "generateSuccess": "报告生成成功",
+    "generateFailed": "生成失败：{error}"
+  },
+  "templates": {
+    "title": "报告提示词",
+    "noTemplates": "暂无提示词",
+    "selectTemplate": "选择一份提示词查看",
+    "newTemplate": "新建提示词",
+    "newName": "新提示词",
+    "clickToRename": "点击修改提示词名称"
   },
   "settings": {
     "title": "设置",
@@ -44,6 +69,17 @@
       "dark": "深色",
       "language": "语言",
       "description": "选择应用的主题风格"
+    },
+    "agent": {
+      "title": "Agent 命令",
+      "description": "配置用于生成报告的 CLI 工具命令，日志内容将通过 stdin 传入",
+      "example": "示例：claude、aichat、ollama run llama3.2",
+      "selectAgent": "选择 Agent",
+      "selectPlaceholder": "检测可用工具中...",
+      "custom": "自定义命令...",
+      "customLabel": "输入自定义命令",
+      "detectedHint": "已检测到本机可用的 AI 工具",
+      "noneDetected": "未检测到常用 AI 工具，请手动配置"
     }
   },
   "setup": {

@@ -6,6 +6,8 @@
   "nav": {
     "today": "Today",
     "logs": "Logs",
+    "reports": "Reports",
+    "templates": "Prompts",
     "settings": "Settings"
   },
   "today": {
@@ -18,6 +20,29 @@
     "date": "Date",
     "noLogs": "No logs yet",
     "noEntry": "No entries for this day"
+  },
+  "reports": {
+    "title": "Reports",
+    "noReports": "No reports yet",
+    "selectReport": "Select a report to view",
+    "generate": "Generate Report",
+    "generating": "Generating...",
+    "dateRange": "Date Range",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "selectTemplate": "Select Prompt",
+    "noTemplate": "Please create a prompt first",
+    "noAgent": "Please configure an Agent command in Settings",
+    "generateSuccess": "Report generated",
+    "generateFailed": "Generation failed: {error}"
+  },
+  "templates": {
+    "title": "Prompts",
+    "noTemplates": "No prompts yet",
+    "selectTemplate": "Select a prompt to view",
+    "newTemplate": "New prompt",
+    "newName": "new-prompt",
+    "clickToRename": "Click to rename"
   },
   "settings": {
     "title": "Settings",
@@ -44,6 +69,17 @@
       "dark": "Dark",
       "language": "Language",
       "description": "Choose the app's theme style"
+    },
+    "agent": {
+      "title": "Agent Command",
+      "description": "Configure the CLI tool for report generation. Log content will be piped via stdin.",
+      "example": "Example: claude, aichat, ollama run llama3.2",
+      "selectAgent": "Select Agent",
+      "selectPlaceholder": "Detecting available tools...",
+      "custom": "Custom command...",
+      "customLabel": "Enter custom command",
+      "detectedHint": "Detected AI tools on your system",
+      "noneDetected": "No common AI tools detected, please configure manually"
     }
   },
   "setup": {

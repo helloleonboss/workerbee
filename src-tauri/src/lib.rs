@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager};
@@ -22,6 +24,10 @@ fn default_locale() -> String {
     "system".to_string()
 }
 
+fn default_agent_command() -> String {
+    String::new()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppConfig {
     storage_path: String,
@@ -33,6 +39,8 @@ struct AppConfig {
     show_hint_bar: bool,
     #[serde(default = "default_locale")]
     locale: String,
+    #[serde(default = "default_agent_command")]
+    agent_command: String,
 }
 
 impl AppConfig {
@@ -68,6 +76,7 @@ impl AppConfig {
             theme: default_theme(),
             show_hint_bar: default_show_hint_bar(),
             locale: default_locale(),
+            agent_command: default_agent_command(),
         })
     }
 }
@@ -82,6 +91,7 @@ fn ensure_dirs(storage_path: &str) -> Result<(), String> {
     let base = PathBuf::from(storage_path);
     fs::create_dir_all(base.join("logs")).map_err(|e| e.to_string())?;
     fs::create_dir_all(base.join("reports")).map_err(|e| e.to_string())?;
+    fs::create_dir_all(base.join("templates")).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -228,6 +238,245 @@ fn read_report(app: tauri::AppHandle, filename: String) -> Result<String, String
         .join("reports")
         .join(format!("{}.md", filename));
     fs::read_to_string(&file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn write_report(app: tauri::AppHandle, filename: String, content: String) -> Result<(), String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    let reports_dir = PathBuf::from(&config.storage_path).join("reports");
+    fs::create_dir_all(&reports_dir).map_err(|e| e.to_string())?;
+    let file_path = reports_dir.join(format!("{}.md", filename));
+    fs::write(&file_path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_templates(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    let templates_dir = PathBuf::from(&config.storage_path).join("templates");
+
+    if !templates_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut templates: Vec<String> = fs::read_dir(&templates_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.ends_with(".md") {
+                Some(name.trim_end_matches(".md").to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    templates.sort();
+    templates.reverse();
+    Ok(templates)
+}
+
+#[tauri::command]
+fn read_template(app: tauri::AppHandle, filename: String) -> Result<String, String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    let file_path = PathBuf::from(&config.storage_path)
+        .join("templates")
+        .join(format!("{}.md", filename));
+    fs::read_to_string(&file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn write_template(app: tauri::AppHandle, filename: String, content: String) -> Result<(), String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    let templates_dir = PathBuf::from(&config.storage_path).join("templates");
+    fs::create_dir_all(&templates_dir).map_err(|e| e.to_string())?;
+    let file_path = templates_dir.join(format!("{}.md", filename));
+    fs::write(&file_path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn generate_report(
+    app: tauri::AppHandle,
+    date_start: String,
+    date_end: String,
+    template_name: String,
+) -> Result<String, String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+
+    // Check if agent_command is configured
+    if config.agent_command.is_empty() {
+        return Err("请先在设置中配置 Agent 命令".to_string());
+    }
+
+    // Parse agent_command - split on whitespace
+    let parts: Vec<&str> = config.agent_command.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("请先在设置中配置 Agent 命令".to_string());
+    }
+    let cmd = parts[0];
+    let args: Vec<&str> = parts[1..].to_vec();
+
+    // Read template content (optional - if template_name is empty, use logs directly)
+    let template_content = if template_name.is_empty() {
+        String::new()
+    } else {
+        let template_path = PathBuf::from(&config.storage_path)
+            .join("templates")
+            .join(format!("{}.md", template_name));
+        if template_path.exists() {
+            fs::read_to_string(&template_path).map_err(|e| e.to_string())?
+        } else {
+            return Err(format!("模板文件不存在: {}", template_name));
+        }
+    };
+
+    // Read all log files in date range
+    let logs_dir = PathBuf::from(&config.storage_path).join("logs");
+    if !logs_dir.exists() {
+        return Err("日志目录不存在".to_string());
+    }
+
+    let mut all_logs = String::new();
+    let entries = fs::read_dir(&logs_dir).map_err(|e| e.to_string())?;
+
+    let mut log_files: Vec<(String, String)> = Vec::new();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.ends_with(".md") {
+            let date = name.trim_end_matches(".md").to_string();
+            // Check if date is within range (inclusive)
+            if date >= date_start && date <= date_end {
+                let content = fs::read_to_string(entry.path()).map_err(|e| e.to_string())?;
+                log_files.push((date, content));
+            }
+        }
+    }
+
+    // Sort by date
+    log_files.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (_, content) in &log_files {
+        if !all_logs.is_empty() {
+            all_logs.push_str("\n\n---\n\n");
+        }
+        all_logs.push_str(content);
+    }
+
+    // Build prompt
+    let prompt = if template_content.is_empty() {
+        all_logs
+    } else {
+        format!("{}\n\n---\n\n# 日志内容\n\n{}", template_content, all_logs)
+    };
+
+    // Execute agent command
+    let mut child = Command::new(cmd)
+        .args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("启动命令失败: {}", e))?;
+
+    // Write prompt to stdin
+    if let Some(mut stdin) = child.stdin.take() {
+        std::thread::spawn(move || {
+            let _ = stdin.write_all(prompt.as_bytes());
+        });
+    }
+
+    // Wait for child to complete and capture output
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("执行命令失败: {}", e))?;
+
+    // Check exit code
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("命令执行失败: {}", stderr));
+    }
+
+    // Get stdout
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+    // Generate report filename
+    let filename = format!("report-{}-{}", date_start, date_end);
+
+    // Save report
+    let reports_dir = PathBuf::from(&config.storage_path).join("reports");
+    fs::create_dir_all(&reports_dir).map_err(|e| e.to_string())?;
+    let report_path = reports_dir.join(format!("{}.md", filename));
+    fs::write(&report_path, &stdout).map_err(|e| e.to_string())?;
+
+    Ok(filename)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct DetectedAgent {
+    name: String,
+    command: String,
+    available: bool,
+}
+
+#[cfg(windows)]
+fn is_command_available(cmd: &str) -> bool {
+    use std::process::{Command, Stdio};
+    Command::new("where.exe")
+        .arg(cmd)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+#[cfg(not(windows))]
+fn is_command_available(cmd: &str) -> bool {
+    use std::process::{Command, Stdio};
+    Command::new("which")
+        .arg(cmd)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn detect_agents() -> Vec<DetectedAgent> {
+    let agents = [
+        ("claude", "Claude (Anthropic)"),
+        ("aichat", "aichat"),
+        ("opencode", "OpenCode"),
+        ("codex", "Codex (OpenAI)"),
+        ("ollama", "Ollama"),
+        ("aider", "Aider"),
+        ("llm", "llm (Datasette)"),
+        ("sgpt", "Shell-GPT"),
+        ("fabric", "Fabric"),
+        ("chatgpt", "ChatGPT CLI"),
+    ];
+
+    agents.iter().map(|(cmd, name)| {
+        DetectedAgent {
+            name: name.to_string(),
+            command: cmd.to_string(),
+            available: is_command_available(cmd),
+        }
+    }).collect()
+}
+
+#[tauri::command]
+fn delete_template(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    let file_path = PathBuf::from(&config.storage_path)
+        .join("templates")
+        .join(format!("{}.md", filename));
+    if file_path.exists() {
+        fs::remove_file(&file_path).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -430,6 +679,13 @@ pub fn run() {
             list_logs,
             list_reports,
             read_report,
+            write_report,
+            list_templates,
+            read_template,
+            write_template,
+            delete_template,
+            generate_report,
+            detect_agents,
             choose_folder,
             show_quick_input_cmd,
             hide_quick_input,
