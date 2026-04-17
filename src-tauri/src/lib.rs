@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::Mutex;
 use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager};
@@ -25,21 +24,6 @@ fn default_locale() -> String {
     "system".to_string()
 }
 
-fn default_agent_command() -> String {
-    String::new()
-}
-
-const DEFAULT_PROMPT: &str = "# 任务
-
-你是一个工作日报生成助手。请根据以下工作日志生成一份专业的工作日报。
-
-{{instruction}}
-
-# 输入内容
-
-{{source}}
-";
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppConfig {
     storage_path: String,
@@ -51,8 +35,6 @@ struct AppConfig {
     show_hint_bar: bool,
     #[serde(default = "default_locale")]
     locale: String,
-    #[serde(default = "default_agent_command")]
-    agent_command: String,
 }
 
 impl AppConfig {
@@ -88,7 +70,6 @@ impl AppConfig {
             theme: default_theme(),
             show_hint_bar: default_show_hint_bar(),
             locale: default_locale(),
-            agent_command: default_agent_command(),
         })
     }
 }
@@ -103,7 +84,6 @@ fn ensure_dirs(storage_path: &str) -> Result<(), String> {
     let base = PathBuf::from(storage_path);
     fs::create_dir_all(base.join("logs")).map_err(|e| e.to_string())?;
     fs::create_dir_all(base.join("reports")).map_err(|e| e.to_string())?;
-    fs::create_dir_all(base.join("templates")).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -259,213 +239,6 @@ fn write_report(app: tauri::AppHandle, filename: String, content: String) -> Res
     fs::create_dir_all(&reports_dir).map_err(|e| e.to_string())?;
     let file_path = reports_dir.join(format!("{}.md", filename));
     fs::write(&file_path, content).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn list_templates(app: tauri::AppHandle) -> Result<Vec<String>, String> {
-    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
-    let templates_dir = PathBuf::from(&config.storage_path).join("templates");
-
-    if !templates_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut templates: Vec<String> = fs::read_dir(&templates_dir)
-        .map_err(|e| e.to_string())?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".md") {
-                Some(name.trim_end_matches(".md").to_string())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    templates.sort();
-    templates.reverse();
-    Ok(templates)
-}
-
-#[tauri::command]
-fn read_template(app: tauri::AppHandle, filename: String) -> Result<String, String> {
-    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
-    let file_path = PathBuf::from(&config.storage_path)
-        .join("templates")
-        .join(format!("{}.md", filename));
-    fs::read_to_string(&file_path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn write_template(app: tauri::AppHandle, filename: String, content: String) -> Result<(), String> {
-    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
-    let templates_dir = PathBuf::from(&config.storage_path).join("templates");
-    fs::create_dir_all(&templates_dir).map_err(|e| e.to_string())?;
-    let file_path = templates_dir.join(format!("{}.md", filename));
-    fs::write(&file_path, content).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn generate_report(
-    app: tauri::AppHandle,
-    source_files: Vec<String>,
-    template_name: String,
-) -> Result<(), String> {
-    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
-
-    if config.agent_command.is_empty() {
-        return Err("请先配置 Agent 命令".to_string());
-    }
-
-    if source_files.is_empty() {
-        return Err("请选择至少一个来源文件".to_string());
-    }
-
-    // Read template content (optional)
-    let template_content = if template_name.is_empty() {
-        String::new()
-    } else {
-        let template_path = PathBuf::from(&config.storage_path)
-            .join("templates")
-            .join(format!("{}.md", template_name));
-        if template_path.exists() {
-            fs::read_to_string(&template_path).map_err(|e| e.to_string())?
-        } else {
-            return Err(format!("模板文件不存在: {}", template_name));
-        }
-    };
-
-    // Read source files
-    let mut all_source = String::new();
-    let mut sorted_sources: Vec<(String, String)> = Vec::new();
-
-    for sf in &source_files {
-        let parts_vec: Vec<&str> = sf.splitn(2, '/').collect();
-        if parts_vec.len() != 2 {
-            return Err(format!("无效的文件路径: {}", sf));
-        }
-        let (subdir, name) = (parts_vec[0], parts_vec[1]);
-        if !["logs", "reports"].contains(&subdir) {
-            return Err(format!("无效的目录: {}", subdir));
-        }
-        let file_path = PathBuf::from(&config.storage_path)
-            .join(subdir)
-            .join(format!("{}.md", name));
-        if !file_path.exists() {
-            return Err(format!("文件不存在: {}", sf));
-        }
-        let content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-        sorted_sources.push((sf.clone(), content));
-    }
-
-    sorted_sources.sort_by(|a, b| a.0.cmp(&b.0));
-
-    for (path, content) in &sorted_sources {
-        if !all_source.is_empty() {
-            all_source.push_str("\n\n---\n\n");
-        }
-        all_source.push_str(&format!("# {}\n\n{}", path, content));
-    }
-
-    // Load prompt template: always use default.md, fill in placeholders
-    let templates_dir = PathBuf::from(&config.storage_path).join("templates");
-    let default_path = templates_dir.join("default.md");
-    let template = if default_path.exists() {
-        fs::read_to_string(&default_path).unwrap_or_else(|_| DEFAULT_PROMPT.to_string())
-    } else {
-        let _ = fs::create_dir_all(&templates_dir);
-        let _ = fs::write(&default_path, DEFAULT_PROMPT);
-        DEFAULT_PROMPT.to_string()
-    };
-
-    let prompt = template
-        .replace("{{instruction}}", &template_content)
-        .replace("{{source}}", &all_source);
-
-    // Write prompt to file (for user reference)
-    let prompt_path = PathBuf::from(&config.storage_path).join(".last-prompt.md");
-    fs::write(&prompt_path, &prompt).map_err(|e| e.to_string())?;
-
-    // Open a visible terminal window: pipe prompt content to agent via stdin.
-    // Must use raw_arg() instead of args() — args() applies MSVCRT escaping
-    // which wraps the command in quotes, turning the pipe `|` into a literal char.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-        let prompt_str = prompt_path.to_string_lossy().to_string();
-        let full_cmd = format!("type \"{}\" | {}", prompt_str, config.agent_command);
-        let mut cmd = Command::new("cmd.exe");
-        cmd.raw_arg(format!("/K {}", full_cmd))
-            .creation_flags(CREATE_NEW_CONSOLE);
-        cmd.spawn()
-            .map_err(|e| format!("启动命令失败: {}", e))?;
-    }
-
-    #[cfg(not(windows))]
-    {
-        let prompt_str = prompt_path.to_string_lossy().to_string();
-        let full_cmd = format!("cat '{}' | {}", prompt_str, config.agent_command);
-        Command::new("sh")
-            .args(&["-c", &full_cmd])
-            .spawn()
-            .map_err(|e| format!("启动命令失败: {}", e))?;
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-fn execute_prompt(app: tauri::AppHandle, prompt: String) -> Result<(), String> {
-    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
-
-    if config.agent_command.is_empty() {
-        return Err("请先配置 Agent 命令".to_string());
-    }
-
-    // Write prompt to file
-    let prompt_path = PathBuf::from(&config.storage_path).join(".last-prompt.md");
-    fs::write(&prompt_path, &prompt).map_err(|e| e.to_string())?;
-
-    // Open a visible terminal window: pipe prompt content to agent via stdin.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-        let prompt_str = prompt_path.to_string_lossy().to_string();
-        let full_cmd = format!("type \"{}\" | {}", prompt_str, config.agent_command);
-        let mut cmd = Command::new("cmd.exe");
-        cmd.raw_arg(format!("/K {}", full_cmd))
-            .creation_flags(CREATE_NEW_CONSOLE);
-        cmd.spawn()
-            .map_err(|e| format!("启动命令失败: {}", e))?;
-    }
-
-    #[cfg(not(windows))]
-    {
-        let prompt_str = prompt_path.to_string_lossy().to_string();
-        let full_cmd = format!("cat '{}' | {}", prompt_str, config.agent_command);
-        Command::new("sh")
-            .args(&["-c", &full_cmd])
-            .spawn()
-            .map_err(|e| format!("启动命令失败: {}", e))?;
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-fn delete_template(app: tauri::AppHandle, filename: String) -> Result<(), String> {
-    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
-    let file_path = PathBuf::from(&config.storage_path)
-        .join("templates")
-        .join(format!("{}.md", filename));
-    if file_path.exists() {
-        fs::remove_file(&file_path).map_err(|e| e.to_string())
-    } else {
-        Ok(())
-    }
 }
 
 #[tauri::command]
@@ -669,12 +442,6 @@ pub fn run() {
             list_reports,
             read_report,
             write_report,
-            list_templates,
-            read_template,
-            write_template,
-            delete_template,
-            generate_report,
-            execute_prompt,
             choose_folder,
             show_quick_input_cmd,
             hide_quick_input,
@@ -716,7 +483,6 @@ pub fn cli_inspect() -> serde_json::Value {
     serde_json::json!({
         "data_dir": data_dir.to_string_lossy(),
         "structure": {
-            "templates/": "报告模板目录，存放提示词文件，AI 读后生成对应格式报告",
             "logs/": "日志片段目录，每文件一天，命名 YYYY-MM-DD.md",
             "reports/": "生成的报告目录，AI 生成报告后写入此处"
         }

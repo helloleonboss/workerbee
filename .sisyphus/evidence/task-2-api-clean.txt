@@ -1,0 +1,4 @@
+Task 2 API clean:
+Generation functions: 0 (expected 0)
+Viewing functions: 3 (expected 3)
+PASS

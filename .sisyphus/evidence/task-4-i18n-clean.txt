@@ -1,0 +1,6 @@
+Task 4 i18n clean:
+zh-CN.json: 1 1 1 1 1 1 keys
+en.json: 1 1 1 1 1 1 keys
+ja.json: 1 1 1 1 1 1 keys
+ko.json: 1 1 1 1 1 1 keys
+All files: PASS (6 keys each)

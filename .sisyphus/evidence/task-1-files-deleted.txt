@@ -1,0 +1,4 @@
+Task 1 files deleted:
+prompt.ts: DELETED
+test: DELETED
+TemplatesView: DELETED

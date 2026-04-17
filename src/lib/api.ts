@@ -10,7 +10,6 @@ export interface AppConfig {
   theme?: Theme;
   show_hint_bar?: boolean;
   locale?: string;
-  agent_command?: string;
 }
 
 export async function getConfig(): Promise<AppConfig | null> {
@@ -51,30 +50,6 @@ export async function readReport(filename: string): Promise<string> {
 
 export async function writeReport(filename: string, content: string): Promise<void> {
   return invoke("write_report", { filename, content });
-}
-
-export async function listTemplates(): Promise<string[]> {
-  return invoke<string[]>("list_templates");
-}
-
-export async function readTemplate(filename: string): Promise<string> {
-  return invoke<string>("read_template", { filename });
-}
-
-export async function writeTemplate(filename: string, content: string): Promise<void> {
-  return invoke("write_template", { filename, content });
-}
-
-export async function deleteTemplate(filename: string): Promise<void> {
-  return invoke("delete_template", { filename });
-}
-
-export async function generateReport(sourceFiles: string[], templateName: string): Promise<void> {
-  return invoke("generate_report", { sourceFiles, templateName });
-}
-
-export async function executePrompt(prompt: string): Promise<void> {
-  return invoke("execute_prompt", { prompt });
 }
 
 export async function chooseFolder(): Promise<string | null> {
