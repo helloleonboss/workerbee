@@ -35,9 +35,7 @@
     "selectSourceHint": "请选择至少一个来源文件",
     "selectTemplate": "提示词",
     "noTemplate": "无提示词",
-    "agent": "Agent",
-    "selectAgent": "选择 Agent",
-    "customAgent": "自定义命令...",
+    "agentCommand": "Agent 命令",
     "agentPlaceholder": "输入命令，如：claude",
     "manageTemplates": "管理提示词",
     "templateManager": "提示词管理",
@@ -46,7 +44,25 @@
     "edit": "编辑",
     "preview": "预览",
     "editMode": "编辑模式",
-    "previewMode": "预览模式"
+    "previewMode": "预览模式",
+    "generateView": "生成报告",
+    "generateNew": "生成报告",
+    "promptPreview": "Prompt 预览",
+    "promptModified": "已修改",
+    "resetPrompt": "重新生成",
+    "resetPromptConfirm": "重新生成会覆盖你的编辑，确认？",
+    "submitPrompt": "提交给 Agent",
+    "agentCommandLabel": "Agent 命令",
+    "noAgentCommand": "请先配置 Agent 命令",
+    "sourcePreview": "预览",
+    "selectSources": "选择来源文件",
+    "selectPrompt": "选择提示词",
+    "createPrompt": "新建提示词",
+    "emptyPromptPreview": "选择来源文件和提示词后，这里会显示完整 prompt",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "systemTemplate": "系统模板",
+    "viewReports": "已有报告"
   },
   "templates": {
     "title": "报告提示词",
@@ -81,11 +97,6 @@
       "dark": "深色",
       "language": "语言",
       "description": "选择应用的主题风格"
-    },
-    "agent": {
-      "title": "Agent",
-      "background": "后台生成",
-      "backgroundHint": "开启后报告生成在后台运行，关闭则前台等待结果（方便调试）"
     }
   },
   "setup": {

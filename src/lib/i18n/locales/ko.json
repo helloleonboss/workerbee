@@ -35,9 +35,7 @@
     "selectSourceHint": "최소 하나의 소스 파일을 선택하세요",
     "selectTemplate": "프롬프트",
     "noTemplate": "프롬프트 없음",
-    "agent": "Agent",
-    "selectAgent": "Agent 선택",
-    "customAgent": "사용자 정의 명령...",
+    "agentCommand": "Agent 명령",
     "agentPlaceholder": "명령 입력, 예: claude",
     "manageTemplates": "프롬프트 관리",
     "templateManager": "프롬프트 관리자",
@@ -46,7 +44,25 @@
     "edit": "편집",
     "preview": "미리보기",
     "editMode": "편집 모드",
-    "previewMode": "미리보기 모드"
+    "previewMode": "미리보기 모드",
+    "generateView": "보고서 생성",
+    "generateNew": "보고서 생성",
+    "promptPreview": "프롬프트 미리보기",
+    "promptModified": "수정됨",
+    "resetPrompt": "재조립",
+    "resetPromptConfirm": "재조립하면 편집 내용이 덮어씌워집니다. 계속하시겠습니까?",
+    "submitPrompt": "Agent에 제출",
+    "agentCommandLabel": "Agent 명령",
+    "noAgentCommand": "Agent 명령을 먼저 설정하세요",
+    "sourcePreview": "미리보기",
+    "selectSources": "소스 파일 선택",
+    "selectPrompt": "프롬프트 선택",
+    "createPrompt": "새 프롬프트",
+    "emptyPromptPreview": "소스와 프롬프트를 선택하면 여기에 전체 프롬프트가 표시됩니다",
+    "selectAll": "전체 선택",
+    "deselectAll": "전체 해제",
+    "systemTemplate": "시스템 템플릿",
+    "viewReports": "기존 보고서"
   },
   "templates": {
     "title": "프롬프트",
@@ -81,11 +97,6 @@
       "dark": "다크",
       "language": "언어",
       "description": "앱의 테마 스타일을 선택하세요"
-    },
-    "agent": {
-      "title": "Agent",
-      "background": "백그라운드 생성",
-      "backgroundHint": "켜면 백그라운드에서 보고서 생성. 끄면 결과를 대기(디버깅에 유리)"
     }
   },
   "setup": {

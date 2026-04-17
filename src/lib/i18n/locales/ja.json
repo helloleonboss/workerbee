@@ -35,9 +35,7 @@
     "selectSourceHint": "ソースファイルを少なくとも1つ選択してください",
     "selectTemplate": "プロンプト",
     "noTemplate": "プロンプトなし",
-    "agent": "Agent",
-    "selectAgent": "Agent選択",
-    "customAgent": "カスタムコマンド...",
+    "agentCommand": "Agent コマンド",
     "agentPlaceholder": "コマンドを入力、例：claude",
     "manageTemplates": "プロンプト管理",
     "templateManager": "プロンプトマネージャ",
@@ -46,7 +44,25 @@
     "edit": "編集",
     "preview": "プレビュー",
     "editMode": "編集モード",
-    "previewMode": "プレビューモード"
+    "previewMode": "プレビューモード",
+    "generateView": "レポート生成",
+    "generateNew": "レポート生成",
+    "promptPreview": "プロンプトプレビュー",
+    "promptModified": "変更済み",
+    "resetPrompt": "再生成",
+    "resetPromptConfirm": "再生成すると編集内容が上書きされます。よろしいですか？",
+    "submitPrompt": "Agent に送信",
+    "agentCommandLabel": "Agent コマンド",
+    "noAgentCommand": "Agent コマンドを先に設定してください",
+    "sourcePreview": "プレビュー",
+    "selectSources": "ソースファイルを選択",
+    "selectPrompt": "プロンプトを選択",
+    "createPrompt": "新規プロンプト",
+    "emptyPromptPreview": "ソースファイルとプロンプトを選択すると、ここに完全なプロンプトが表示されます",
+    "selectAll": "全選択",
+    "deselectAll": "全解除",
+    "systemTemplate": "システムテンプレート",
+    "viewReports": "既存レポート"
   },
   "templates": {
     "title": "プロンプト",
@@ -81,11 +97,6 @@
       "dark": "ダーク",
       "language": "言語",
       "description": "アプリのテーマを選択"
-    },
-    "agent": {
-      "title": "Agent",
-      "background": "バックグラウンド生成",
-      "backgroundHint": "オンにするとバックグラウンドでレポート生成。オフにすると結果を待機（デバッグに便利）"
     }
   },
   "setup": {

@@ -35,9 +35,7 @@
     "selectSourceHint": "Please select at least one source file",
     "selectTemplate": "Prompt",
     "noTemplate": "No prompt",
-    "agent": "Agent",
-    "selectAgent": "Select Agent",
-    "customAgent": "Custom command...",
+    "agentCommand": "Agent Command",
     "agentPlaceholder": "Enter command, e.g.: claude",
     "manageTemplates": "Manage Prompts",
     "templateManager": "Prompt Manager",
@@ -46,7 +44,25 @@
     "edit": "Edit",
     "preview": "Preview",
     "editMode": "Edit Mode",
-    "previewMode": "Preview Mode"
+    "previewMode": "Preview Mode",
+    "generateView": "Generate Report",
+    "generateNew": "Generate Report",
+    "promptPreview": "Prompt Preview",
+    "promptModified": "Modified",
+    "resetPrompt": "Reassemble",
+    "resetPromptConfirm": "Reassembling will overwrite your edits. Continue?",
+    "submitPrompt": "Submit to Agent",
+    "agentCommandLabel": "Agent Command",
+    "noAgentCommand": "Please configure Agent command first",
+    "sourcePreview": "Preview",
+    "selectSources": "Select Source Files",
+    "selectPrompt": "Select Prompt",
+    "createPrompt": "New Prompt",
+    "emptyPromptPreview": "Select sources and a prompt to see the full prompt here",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "systemTemplate": "System Template",
+    "viewReports": "Existing Reports"
   },
   "templates": {
     "title": "Prompts",
@@ -81,11 +97,6 @@
       "dark": "Dark",
       "language": "Language",
       "description": "Choose the app's theme style"
-    },
-    "agent": {
-      "title": "Agent",
-      "background": "Background Generation",
-      "backgroundHint": "Run report generation in background. Disable to wait for results (easier debugging)"
     }
   },
   "setup": {

@@ -11,7 +11,6 @@ export interface AppConfig {
   show_hint_bar?: boolean;
   locale?: string;
   agent_command?: string;
-  agent_background?: boolean;
 }
 
 export async function getConfig(): Promise<AppConfig | null> {
@@ -70,20 +69,14 @@ export async function deleteTemplate(filename: string): Promise<void> {
   return invoke("delete_template", { filename });
 }
 
-export async function generateReport(sourceFiles: string[], templateName: string): Promise<string> {
-  return invoke<string>("generate_report", { sourceFiles, templateName });
+export async function generateReport(sourceFiles: string[], templateName: string): Promise<void> {
+  return invoke("generate_report", { sourceFiles, templateName });
+}
+
+export async function executePrompt(prompt: string): Promise<void> {
+  return invoke("execute_prompt", { prompt });
 }
 
 export async function chooseFolder(): Promise<string | null> {
   return invoke<string | null>("choose_folder");
-}
-
-export interface DetectedAgent {
-  name: string;
-  command: string;
-  available: boolean;
-}
-
-export async function detectAgents(): Promise<DetectedAgent[]> {
-  return invoke<DetectedAgent[]>("detect_agents");
 }

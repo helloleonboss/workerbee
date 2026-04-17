@@ -1,4 +1,6 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -26,6 +28,17 @@ fn default_locale() -> String {
 fn default_agent_command() -> String {
     String::new()
 }
+
+const DEFAULT_PROMPT: &str = "# 任务
+
+你是一个工作日报生成助手。请根据以下工作日志生成一份专业的工作日报。
+
+{{instruction}}
+
+# 输入内容
+
+{{source}}
+";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppConfig {
@@ -76,7 +89,6 @@ impl AppConfig {
             show_hint_bar: default_show_hint_bar(),
             locale: default_locale(),
             agent_command: default_agent_command(),
-            agent_background: default_agent_background(),
         })
     }
 }
@@ -299,10 +311,9 @@ async fn generate_report(
     app: tauri::AppHandle,
     source_files: Vec<String>,
     template_name: String,
-) -> Result<String, String> {
+) -> Result<(), String> {
     let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
 
-    // Check if agent_command is configured
     if config.agent_command.is_empty() {
         return Err("请先配置 Agent 命令".to_string());
     }
@@ -310,14 +321,6 @@ async fn generate_report(
     if source_files.is_empty() {
         return Err("请选择至少一个来源文件".to_string());
     }
-
-    // Parse agent_command - split on whitespace
-    let parts: Vec<&str> = config.agent_command.split_whitespace().collect();
-    if parts.is_empty() {
-        return Err("请先配置 Agent 命令".to_string());
-    }
-    let cmd = parts[0];
-    let args: Vec<&str> = parts[1..].to_vec();
 
     // Read template content (optional)
     let template_content = if template_name.is_empty() {
@@ -333,8 +336,7 @@ async fn generate_report(
         }
     };
 
-    // Read source files. Each source_file entry is like "logs/2026-04-14" or "reports/report-2026-04-14"
-    // Format: "<subdir>/<filename_without_ext>"
+    // Read source files
     let mut all_source = String::new();
     let mut sorted_sources: Vec<(String, String)> = Vec::new();
 
@@ -357,7 +359,6 @@ async fn generate_report(
         sorted_sources.push((sf.clone(), content));
     }
 
-    // Sort by source path for consistent ordering
     sorted_sources.sort_by(|a, b| a.0.cmp(&b.0));
 
     for (path, content) in &sorted_sources {
@@ -367,136 +368,91 @@ async fn generate_report(
         all_source.push_str(&format!("# {}\n\n{}", path, content));
     }
 
-    // Build prompt
-    let prompt = if template_content.is_empty() {
-        all_source
+    // Load prompt template: always use default.md, fill in placeholders
+    let templates_dir = PathBuf::from(&config.storage_path).join("templates");
+    let default_path = templates_dir.join("default.md");
+    let template = if default_path.exists() {
+        fs::read_to_string(&default_path).unwrap_or_else(|_| DEFAULT_PROMPT.to_string())
     } else {
-        format!("{}\n\n---\n\n# 输入内容\n\n{}", template_content, all_source)
+        let _ = fs::create_dir_all(&templates_dir);
+        let _ = fs::write(&default_path, DEFAULT_PROMPT);
+        DEFAULT_PROMPT.to_string()
     };
 
-    // Execute agent command
-    // On Windows, use `cmd /C` to support .ps1/.cmd scripts (e.g. claude, opencode)
+    let prompt = template
+        .replace("{{instruction}}", &template_content)
+        .replace("{{source}}", &all_source);
+
+    // Write prompt to file (for user reference)
+    let prompt_path = PathBuf::from(&config.storage_path).join(".last-prompt.md");
+    fs::write(&prompt_path, &prompt).map_err(|e| e.to_string())?;
+
+    // Open a visible terminal window: pipe prompt content to agent via stdin.
+    // Must use raw_arg() instead of args() — args() applies MSVCRT escaping
+    // which wraps the command in quotes, turning the pipe `|` into a literal char.
     #[cfg(windows)]
-    let mut child = {
-        let full_cmd = format!("{} {}", cmd, args.join(" "));
-        Command::new("cmd")
-            .arg("/C")
-            .arg(&full_cmd)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("启动命令失败: {}", e))?
-    };
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+        let prompt_str = prompt_path.to_string_lossy().to_string();
+        let full_cmd = format!("type \"{}\" | {}", prompt_str, config.agent_command);
+        let mut cmd = Command::new("cmd.exe");
+        cmd.raw_arg(format!("/K {}", full_cmd))
+            .creation_flags(CREATE_NEW_CONSOLE);
+        cmd.spawn()
+            .map_err(|e| format!("启动命令失败: {}", e))?;
+    }
 
     #[cfg(not(windows))]
-    let mut child = Command::new(cmd)
-        .args(&args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("启动命令失败: {}", e))?;
-
-    // Write prompt to stdin and close it
-    if let Some(mut stdin) = child.stdin.take() {
-        std::thread::spawn(move || {
-            let _ = stdin.write_all(prompt.as_bytes());
-            // Drop stdin to close the pipe — signals EOF to the child process
-        });
+    {
+        let prompt_str = prompt_path.to_string_lossy().to_string();
+        let full_cmd = format!("cat '{}' | {}", prompt_str, config.agent_command);
+        Command::new("sh")
+            .args(&["-c", &full_cmd])
+            .spawn()
+            .map_err(|e| format!("启动命令失败: {}", e))?;
     }
 
-    // Read stdout with size limit to prevent memory exhaustion
-    const MAX_OUTPUT_SIZE: usize = 2 * 1024 * 1024; // 2 MB
-
-    let output = child
-        .wait_with_output()
-        .map_err(|e| format!("执行命令失败: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("命令执行失败: {}", stderr));
-    }
-
-    // Truncate output if too large
-    let stdout_len = output.stdout.len();
-    let stdout_buf: Vec<u8> = if stdout_len > MAX_OUTPUT_SIZE {
-        output.stdout[..MAX_OUTPUT_SIZE].to_vec()
-    } else {
-        output.stdout
-    };
-
-    let mut stdout = String::from_utf8_lossy(&stdout_buf).to_string();
-    if stdout_len > MAX_OUTPUT_SIZE {
-        stdout.push_str("\n\n---\n[输出超过 2MB，已截断]");
-    }
-
-    // Generate report filename with timestamp
-    let now = chrono::Local::now();
-    let filename = format!("report-{}", now.format("%Y-%m-%d-%H%M%S"));
-
-    // Save report
-    let reports_dir = PathBuf::from(&config.storage_path).join("reports");
-    fs::create_dir_all(&reports_dir).map_err(|e| e.to_string())?;
-    let report_path = reports_dir.join(format!("{}.md", filename));
-    fs::write(&report_path, &stdout).map_err(|e| e.to_string())?;
-
-    Ok(filename)
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct DetectedAgent {
-    name: String,
-    command: String,
-    available: bool,
-}
-
-#[cfg(windows)]
-fn is_command_available(cmd: &str) -> bool {
-    use std::process::{Command, Stdio};
-    Command::new("where.exe")
-        .arg(cmd)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-#[cfg(not(windows))]
-fn is_command_available(cmd: &str) -> bool {
-    use std::process::{Command, Stdio};
-    Command::new("which")
-        .arg(cmd)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    Ok(())
 }
 
 #[tauri::command]
-fn detect_agents() -> Vec<DetectedAgent> {
-    let agents = [
-        ("claude", "Claude (Anthropic)"),
-        ("aichat", "aichat"),
-        ("opencode", "OpenCode"),
-        ("codex", "Codex (OpenAI)"),
-        ("ollama", "Ollama"),
-        ("aider", "Aider"),
-        ("llm", "llm (Datasette)"),
-        ("sgpt", "Shell-GPT"),
-        ("fabric", "Fabric"),
-        ("chatgpt", "ChatGPT CLI"),
-    ];
+fn execute_prompt(app: tauri::AppHandle, prompt: String) -> Result<(), String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
 
-    agents.iter().map(|(cmd, name)| {
-        DetectedAgent {
-            name: name.to_string(),
-            command: cmd.to_string(),
-            available: is_command_available(cmd),
-        }
-    }).collect()
+    if config.agent_command.is_empty() {
+        return Err("请先配置 Agent 命令".to_string());
+    }
+
+    // Write prompt to file
+    let prompt_path = PathBuf::from(&config.storage_path).join(".last-prompt.md");
+    fs::write(&prompt_path, &prompt).map_err(|e| e.to_string())?;
+
+    // Open a visible terminal window: pipe prompt content to agent via stdin.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+        let prompt_str = prompt_path.to_string_lossy().to_string();
+        let full_cmd = format!("type \"{}\" | {}", prompt_str, config.agent_command);
+        let mut cmd = Command::new("cmd.exe");
+        cmd.raw_arg(format!("/K {}", full_cmd))
+            .creation_flags(CREATE_NEW_CONSOLE);
+        cmd.spawn()
+            .map_err(|e| format!("启动命令失败: {}", e))?;
+    }
+
+    #[cfg(not(windows))]
+    {
+        let prompt_str = prompt_path.to_string_lossy().to_string();
+        let full_cmd = format!("cat '{}' | {}", prompt_str, config.agent_command);
+        Command::new("sh")
+            .args(&["-c", &full_cmd])
+            .spawn()
+            .map_err(|e| format!("启动命令失败: {}", e))?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -718,11 +674,85 @@ pub fn run() {
             write_template,
             delete_template,
             generate_report,
-            detect_agents,
+            execute_prompt,
             choose_folder,
             show_quick_input_cmd,
             hide_quick_input,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ─── CLI 共用纯函数（不依赖 tauri::AppHandle） ───
+
+/// 定位数据目录，优先级：环境变量 > 配置文件 > 默认值
+pub fn cli_get_data_dir() -> PathBuf {
+    // 1. 环境变量
+    if let Ok(dir) = env::var("WORKERBEE_DATA_DIR") {
+        return PathBuf::from(dir);
+    }
+
+    // 2. 配置文件
+    let config_path = dirs::home_dir()
+        .map(|p| p.join(".workerbee").join(".workerbee.config.json"))
+        .unwrap_or_else(|| PathBuf::from(".workerbee/.workerbee.config.json"));
+    if let Ok(content) = fs::read_to_string(&config_path) {
+        if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+            if !config.storage_path.is_empty() {
+                return PathBuf::from(config.storage_path);
+            }
+        }
+    }
+
+    // 3. 默认值
+    dirs::home_dir()
+        .map(|p| p.join(".workerbee"))
+        .unwrap_or_else(|| PathBuf::from(".workerbee"))
+}
+
+/// CLI inspect：返回数据目录结构
+pub fn cli_inspect() -> serde_json::Value {
+    let data_dir = cli_get_data_dir();
+    serde_json::json!({
+        "data_dir": data_dir.to_string_lossy(),
+        "structure": {
+            "templates/": "报告模板目录，存放提示词文件，AI 读后生成对应格式报告",
+            "logs/": "日志片段目录，每文件一天，命名 YYYY-MM-DD.md",
+            "reports/": "生成的报告目录，AI 生成报告后写入此处"
+        }
+    })
+}
+
+/// CLI add：追加日志条目到今日文件
+pub fn cli_add_log(content: &str) -> Result<serde_json::Value, String> {
+    if content.trim().is_empty() {
+        return Err("内容不能为空".to_string());
+    }
+
+    let now = Local::now();
+    let date_str = now.format("%Y-%m-%d").to_string();
+    let time_str = now.format("%H:%M").to_string();
+
+    let data_dir = cli_get_data_dir();
+    let logs_dir = data_dir.join("logs");
+    fs::create_dir_all(&logs_dir).map_err(|e| e.to_string())?;
+
+    let file_path = logs_dir.join(format!("{}.md", date_str));
+
+    let existing = if file_path.exists() {
+        fs::read_to_string(&file_path).unwrap_or_default()
+    } else {
+        format!("---\ndate: {}\n---\n", date_str)
+    };
+
+    let entry = format!("\n## {}\n\n{}\n", time_str, content.trim());
+    let new_content = format!("{}{}", existing.trim_end(), entry);
+
+    fs::write(&file_path, &new_content).map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "success": true,
+        "file": file_path.to_string_lossy(),
+        "time": time_str
+    }))
 }
