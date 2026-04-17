@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "./components/ui/select";
 import { Dialog, DialogTrigger } from "./components/ui/dialog";
-import { FolderOpen, FileText, Settings, Sun, HelpCircle, Terminal } from "lucide-react";
+import { FolderOpen, FileText, Settings, Sun, HelpCircle } from "lucide-react";
 import { ShortcutsHelpDialog } from "./components/ShortcutsHelpDialog";
 import { ReportsView } from "./components/ReportsView";
 
@@ -558,13 +558,12 @@ function SettingsView({
   const [theme, setTheme] = useState<Theme>(config.theme || "system");
   const [showHintBar, setShowHintBar] = useState(config.show_hint_bar ?? true);
   const [locale, setLocaleState] = useState(config.locale || "system");
-  const [agentBackground, setAgentBackground] = useState(config.agent_background ?? false);
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saved, setSaved] = useState(false);
 
   // Auto-save whenever config changes
   function persistConfig(path: string, sc: string, th: Theme, shb?: boolean, lc?: string) {
-    const newConfig: AppConfig = { storage_path: path, shortcut: sc, theme: th, show_hint_bar: shb, locale: lc, agent_command: config.agent_command, agent_background: config.agent_background };
+    const newConfig: AppConfig = { storage_path: path, shortcut: sc, theme: th, show_hint_bar: shb, locale: lc };
     onConfigChange(newConfig);
     if (savedTimeout.current) clearTimeout(savedTimeout.current);
     savedTimeout.current = setTimeout(async () => {
@@ -733,54 +732,6 @@ function SettingsView({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Terminal className="w-5 h-5" />
-            {t("settings.agent.title")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm">{t("settings.agent.background")}</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t("settings.agent.backgroundHint")}
-              </p>
-            </div>
-            <Button
-              variant={agentBackground ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                const newVal = !agentBackground;
-                setAgentBackground(newVal);
-                const newConfig: AppConfig = {
-                  storage_path: storagePath,
-                  shortcut,
-                  theme,
-                  show_hint_bar: showHintBar,
-                  locale,
-                  agent_command: config.agent_command,
-                  agent_background: newVal,
-                };
-                onConfigChange(newConfig);
-                if (savedTimeout.current) clearTimeout(savedTimeout.current);
-                savedTimeout.current = setTimeout(async () => {
-                  try {
-                    await saveConfig(newConfig);
-                    setSaved(true);
-                    setTimeout(() => setSaved(false), 1500);
-                  } catch (e) {
-                    console.error("Failed to save config:", e);
-                  }
-                }, 300);
-              }}
-            >
-              {agentBackground ? t("common.yes") : t("common.no")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

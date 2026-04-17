@@ -1,0 +1,6 @@
+ReportsView.tsx viewing functions verified:
+- listReports (import + usage line 5, 35)
+- readReport (import + usage line 6, 45)
+- writeReport (import + usage line 7, 65)
+- loadReports, handleSelectReport, handleContentChange all present
+- report list sidebar + content area + edit/preview toggle intact

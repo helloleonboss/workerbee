@@ -1,0 +1,3 @@
+grep: no matches for generate|prompt|template|agent|source in ReportsView.tsx
+grep: no matches for agent_command|agent_background in App.tsx
+VERIFIED: All generation references removed from both files.

@@ -1,0 +1,6 @@
+App.tsx agent references verified:
+- No agent_command references remain
+- No agent_background references remain
+- Terminal import removed
+- Agent Settings Card removed entirely
+- persistConfig no longer includes agent fields

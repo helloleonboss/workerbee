@@ -144,7 +144,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ## TODOs
 
-- [ ] 1. Delete generation-only files
+- [x] 1. Delete generation-only files
 
   **What to do**:
   - Delete `src/lib/prompt.ts` (entire file — prompt assembly logic)
@@ -194,7 +194,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ---
 
-- [ ] 2. Clean api.ts — remove generation + template functions
+- [x] 2. Clean api.ts — remove generation + template functions
 
   **What to do**:
   - Remove `generateReport()` function
@@ -246,7 +246,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ---
 
-- [ ] 3. Clean lib.rs — remove generation commands, template commands, DEFAULT_PROMPT, agent_command config
+- [x] 3. Clean lib.rs — remove generation commands, template commands, DEFAULT_PROMPT, agent_command config
 
   **What to do**:
 
@@ -350,7 +350,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ---
 
-- [ ] 4. Clean i18n — remove generation-only keys from 4 locale files
+- [x] 4. Clean i18n — remove generation-only keys from 4 locale files
 
   **What to do**:
 
