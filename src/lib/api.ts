@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export const DEFAULT_SHORTCUT = "CommandOrControl+Shift+Space";
+export const DEFAULT_SCREENSHOT_SHORTCUT = "CommandOrControl+Shift+S";
 export const DEFAULT_AI_BASE_URL = "https://opencode.ai/zen/go/v1";
 export const DEFAULT_AI_MODEL = "glm-5.1";
 
@@ -196,4 +197,31 @@ export async function writeTemplate(
 
 export async function deleteTemplate(filename: string): Promise<void> {
   return invoke("delete_template", { filename });
+}
+
+// ─── Screenshot API ───
+
+export async function captureScreens(): Promise<[string, number, number]> {
+  return invoke("capture_screens");
+}
+
+export async function cropAndSaveScreenshot(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): Promise<string> {
+  return invoke("crop_and_save_screenshot", { x, y, width, height });
+}
+
+export async function saveScreenshotLogEntry(imagePath: string): Promise<void> {
+  return invoke("save_screenshot_log_entry", { imagePath });
+}
+
+export async function closeScreenshotOverlay(): Promise<void> {
+  return invoke("close_screenshot_overlay");
+}
+
+export async function cancelScreenshot(): Promise<void> {
+  return invoke("cancel_screenshot");
 }

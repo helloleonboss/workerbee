@@ -6,8 +6,13 @@ import {
   saveConfig,
   readLog,
   writeLog,
+  writeReport,
   listLogs,
   DEFAULT_SHORTCUT,
+  DEFAULT_SCREENSHOT_SHORTCUT,
+  AI_PROVIDERS,
+  type AiConfig,
+  type AiProviderKey,
   type AppConfig,
   type Theme,
 } from "./lib/api";
@@ -28,8 +33,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+import { generateReport } from "./lib/ai/generate";
+import { registry } from "./lib/ai/registry";
+import {
+  Renderer,
+  StateProvider,
+  ActionProvider,
+  VisibilityProvider,
+} from "@json-render/react";
+import type { Spec } from "@json-render/core";
 import { Dialog, DialogTrigger } from "./components/ui/dialog";
-import { FolderOpen, FileText, Settings, Sun, HelpCircle } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
+import { FolderOpen, FileText, Settings, Sun, HelpCircle, Sparkles, Loader2 } from "lucide-react";
 import { ShortcutsHelpDialog } from "./components/ShortcutsHelpDialog";
 import { ReportsView } from "./components/ReportsView";
 
@@ -247,6 +262,7 @@ function App() {
             <TodayView
               shortcutDisplay={formatShortcutForDisplay(activeShortcut)}
               shortcut={activeShortcut}
+              config={config}
             />
           </TabsContent>
 
@@ -261,10 +277,10 @@ function App() {
           </TabsContent>
 
           <TabsContent active={view === "reports"} className="flex-1 overflow-hidden">
-            <ReportsView />
+            <ReportsView config={config} onConfigChange={handleConfigChange} />
           </TabsContent>
 
-          <TabsContent active={view === "settings"} className="flex-1 overflow-auto flex justify-center p-4">
+          <TabsContent active={view === "settings"} className="flex-1 min-h-0 overflow-auto flex items-center p-4">
             <div className="w-full max-w-lg">
               <SettingsView config={config} onConfigChange={handleConfigChange} />
             </div>
@@ -278,12 +294,23 @@ function App() {
 function TodayView({
   shortcutDisplay,
   shortcut,
+  config,
 }: {
   shortcutDisplay: string;
   shortcut: string;
+  config: AppConfig;
 }) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [showHint, setShowHint] = useState(() => !localStorage.getItem("hasSeenShortcutHint"));
+
+  // Daily report generation state
+  const [genSheetOpen, setGenSheetOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [spec, setSpec] = useState<Spec | null>(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [reasoningText, setReasoningText] = useState("");
+  const [generatedReport, setGeneratedReport] = useState<string | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
 
   const dismissHint = () => {
     localStorage.setItem("hasSeenShortcutHint", "1");
@@ -328,6 +355,113 @@ function TodayView({
 
   // Sort entries by time descending (newest first)
   const sortedEntries = [...entries].sort((a, b) => b.time.localeCompare(a.time));
+
+  const aiConfigured = !!(config.ai?.api_key);
+
+  async function handleGenerateDailyReport() {
+    if (!config.ai) {
+      setGenError(t("today.noConfig"));
+      setGenSheetOpen(true);
+      return;
+    }
+
+    if (sortedEntries.length === 0) {
+      setGenError(t("today.noEntries"));
+      setGenSheetOpen(true);
+      return;
+    }
+
+    // Reset state and open sheet
+    setGenerating(true);
+    setSpec(null);
+    setGeneratedReport(null);
+    setGenError(null);
+    setStreamingText("");
+    setReasoningText("");
+    setGenSheetOpen(true);
+
+    try {
+      const date = formatCurrentDate();
+      const logContent = await readLog(date);
+
+      if (!logContent.trim()) {
+        setGenerating(false);
+        setGenError(t("today.noEntries"));
+        return;
+      }
+
+      const dailyPrompt = `按以下格式生成日报：
+1. 今日完成工作（列出具体事项和进度）
+2. 遇到的问题及解决方案
+3. 明日计划
+4. 需要协调的事项（如没有则省略）
+
+要求：简洁明了，每项工作一句话概括，重点突出成果和进度。`;
+
+      await generateReport({
+        aiConfig: config.ai,
+        logs: logContent,
+        dateRange: date,
+        customInstruction: dailyPrompt,
+        phase: "generation",
+        onTextUpdate: (text) => setStreamingText(text),
+        onReasoningUpdate: (text) => setReasoningText(text),
+        onSpecUpdate: (s) => setSpec(s),
+        onComplete: (s, text) => {
+          setGenerating(false);
+          if (s) setSpec(s);
+          else setGeneratedReport(text);
+        },
+        onError: (err) => {
+          setGenerating(false);
+          setGenError(err.message || String(err));
+        },
+      });
+    } catch (e) {
+      setGenerating(false);
+      setGenError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleSaveDailyReport() {
+    if (!spec && !generatedReport) return;
+
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `report-${dateStr}`;
+
+    let reportContent = generatedReport || "";
+    if (spec?.elements) {
+      for (const el of Object.values(spec.elements)) {
+        const elem = el as { type?: string; props?: { content?: string; title?: string } };
+        if (elem.type === "ReportPreview" && elem.props?.content) {
+          reportContent = `# ${elem.props.title || "日报"}\n\n${elem.props.content}`;
+          break;
+        }
+      }
+    }
+
+    try {
+      await writeReport(filename, reportContent);
+      setGenSheetOpen(false);
+      // Reset state
+      setSpec(null);
+      setGeneratedReport(null);
+      setStreamingText("");
+      setReasoningText("");
+      setGenError(null);
+    } catch (e) {
+      console.error("Failed to save report:", e);
+    }
+  }
+
+  function resetGenState() {
+    setSpec(null);
+    setGeneratedReport(null);
+    setStreamingText("");
+    setReasoningText("");
+    setGenError(null);
+    setGenerating(false);
+  }
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editTime, setEditTime] = useState("");
@@ -434,6 +568,16 @@ function TodayView({
           <h2 className="text-2xl font-bold">{t("today.title")}</h2>
           <p className="text-sm text-muted-foreground mt-1">{dateDisplay}</p>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={handleGenerateDailyReport}
+          title={t("today.generateReport")}
+          disabled={!aiConfigured}
+        >
+          <Sparkles className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* First-launch shortcut hint banner */}
@@ -497,7 +641,7 @@ function TodayView({
                         if (e.relatedTarget === editContentRef.current) return;
                         saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                       }}
-                      className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 caret-foreground mb-0.5 p-0 h-auto"
+                      className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 caret-foreground p-0 h-auto"
                       placeholder="HH:mm"
                     />
                     <textarea
@@ -542,6 +686,87 @@ function TodayView({
           </div>
         </ScrollArea>
       )}
+
+      {/* Daily report generation Sheet */}
+      <Sheet open={genSheetOpen} onOpenChange={(open) => { if (!open) resetGenState(); setGenSheetOpen(open); }}>
+        <SheetContent side="right" className="flex flex-col overflow-hidden w-[480px] max-w-[90vw]">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{t("today.generateReport")}</SheetTitle>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-auto">
+            {/* Error state */}
+            {genError && (
+              <div className="text-sm text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md p-3">
+                <p className="whitespace-pre-wrap break-words text-xs">{genError}</p>
+              </div>
+            )}
+
+            {/* Generating state */}
+            {generating && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  {reasoningText ? t("reports.generate.buildingReport") : t("reports.generate.thinking")}
+                </p>
+                {reasoningText && (
+                  <details className="w-full mt-2">
+                    <summary className="text-xs text-muted-foreground cursor-pointer">
+                      {t("reports.generate.viewThinking")}
+                    </summary>
+                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-words mt-2 max-h-40 overflow-auto">
+                      {reasoningText}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
+
+            {/* Spec result (json-render) */}
+            {spec?.root && spec.elements?.[spec.root] && (
+              <div className="py-2">
+                <StateProvider initialState={{}}>
+                  <VisibilityProvider>
+                    <ActionProvider
+                      handlers={{
+                        save_report: async () => { await handleSaveDailyReport(); },
+                      }}
+                    >
+                      <Renderer spec={spec} registry={registry} loading={generating} />
+                    </ActionProvider>
+                  </VisibilityProvider>
+                </StateProvider>
+              </div>
+            )}
+
+            {/* Streaming text (shown during generation before spec appears, or when AI returns plain text) */}
+            {streamingText && !spec?.root && !generatedReport && (
+              <div className="py-2">
+                <pre className="text-sm whitespace-pre-wrap leading-relaxed">{streamingText}</pre>
+              </div>
+            )}
+
+            {/* Plain text result */}
+            {!spec?.root && generatedReport && (
+              <div className="py-2">
+                <pre className="text-sm whitespace-pre-wrap leading-relaxed">{generatedReport}</pre>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom actions — only show for plain text reports (json-render specs have their own ActionButtons) */}
+          {!spec?.root && generatedReport && !generating && !genError && (
+            <div className="flex gap-2 pt-4 border-t">
+              <Button onClick={handleSaveDailyReport} className="flex-1">
+                {t("reports.generate.saveReport")}
+              </Button>
+              <Button variant="outline" onClick={() => { resetGenState(); handleGenerateDailyReport(); }}>
+                {t("reports.generate.regenerate")}
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -555,15 +780,41 @@ function SettingsView({
 }) {
   const [storagePath, setStoragePath] = useState(config.storage_path);
   const [shortcut, setShortcut] = useState(config.shortcut || DEFAULT_SHORTCUT);
+  const [screenshotShortcut, setScreenshotShortcut] = useState(config.screenshot_shortcut || DEFAULT_SCREENSHOT_SHORTCUT);
   const [theme, setTheme] = useState<Theme>(config.theme || "system");
   const [showHintBar, setShowHintBar] = useState(config.show_hint_bar ?? true);
   const [locale, setLocaleState] = useState(config.locale || "system");
+  const savedProvider = config.ai?.provider;
+  const validProvider: AiProviderKey =
+    savedProvider && savedProvider in AI_PROVIDERS
+      ? (savedProvider as AiProviderKey)
+      : "opencode-go";
+  const [aiProvider, setAiProvider] = useState<AiProviderKey>(validProvider);
+  const [aiBaseUrl, setAiBaseUrl] = useState(
+    config.ai?.api_base_url || AI_PROVIDERS[validProvider].baseUrl
+  );
+  const [aiApiKey, setAiApiKey] = useState(config.ai?.api_key || "");
+  const [aiModel, setAiModel] = useState(
+    config.ai?.model || "glm-5.1"
+  );
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const currentAiConfig: AiConfig = { provider: aiProvider, api_base_url: aiBaseUrl, api_key: aiApiKey, model: aiModel };
+
   // Auto-save whenever config changes
-  function persistConfig(path: string, sc: string, th: Theme, shb?: boolean, lc?: string) {
-    const newConfig: AppConfig = { storage_path: path, shortcut: sc, theme: th, show_hint_bar: shb, locale: lc };
+  function persistConfig(path: string, sc: string, th: Theme, screenshotSc?: string, shb?: boolean, lc?: string, aiCfg?: AiConfig) {
+    const newConfig: AppConfig = {
+      storage_path: path,
+      shortcut: sc,
+      screenshot_shortcut: screenshotSc,
+      theme: th,
+      show_hint_bar: shb,
+      locale: lc,
+      ai: aiCfg,
+      report_presets: config.report_presets,
+      selected_report_preset: config.selected_report_preset,
+    };
     onConfigChange(newConfig);
     if (savedTimeout.current) clearTimeout(savedTimeout.current);
     savedTimeout.current = setTimeout(async () => {
@@ -588,7 +839,7 @@ function SettingsView({
       if (selected) {
         const path = typeof selected === "string" ? selected : selected;
         setStoragePath(path as string);
-        persistConfig(path as string, shortcut, theme, showHintBar, locale);
+        persistConfig(path as string, shortcut, theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
       }
     } catch (e) {
       console.error("Failed to choose folder:", e);
@@ -617,7 +868,7 @@ function SettingsView({
               value={storagePath}
               onChange={(e) => {
                 setStoragePath(e.target.value);
-                persistConfig(e.target.value, shortcut, theme, showHintBar, locale);
+                persistConfig(e.target.value, shortcut, theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
               }}
               className="flex-1"
             />
@@ -653,11 +904,24 @@ function SettingsView({
               value={shortcut}
               onChange={(s) => {
                 setShortcut(s);
-                persistConfig(storagePath, s, theme, showHintBar, locale);
+                persistConfig(storagePath, s, theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
               }}
             />
             <p className="text-xs text-muted-foreground">
               {t("settings.shortcut.hint")}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("settings.shortcut.screenshot")}</label>
+            <ShortcutRecorder
+              value={screenshotShortcut ?? DEFAULT_SCREENSHOT_SHORTCUT}
+              onChange={(s) => {
+                setScreenshotShortcut(s);
+                persistConfig(storagePath, shortcut, theme, s, showHintBar, locale, currentAiConfig);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("settings.shortcut.screenshotHint")}
             </p>
           </div>
           <div className="flex items-center justify-between">
@@ -668,7 +932,7 @@ function SettingsView({
               onClick={() => {
                 const newVal = !showHintBar;
                 setShowHintBar(newVal);
-                persistConfig(storagePath, shortcut, theme, newVal, locale);
+                persistConfig(storagePath, shortcut, theme, screenshotShortcut, newVal, locale, currentAiConfig);
               }}
             >
               {showHintBar ? t("common.yes") : t("common.no")}
@@ -691,7 +955,7 @@ function SettingsView({
               value={theme}
               onValueChange={(val) => {
                 setTheme(val as Theme);
-                persistConfig(storagePath, shortcut, val as Theme, showHintBar, locale);
+                persistConfig(storagePath, shortcut, val as Theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
               }}
             >
               <SelectTrigger className="w-[160px]">
@@ -714,7 +978,7 @@ function SettingsView({
               onValueChange={(val) => {
                 setLocaleState(val);
                 setLocale(val === "system" ? "system" : val);
-                persistConfig(storagePath, shortcut, theme, showHintBar, val);
+                persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, val, currentAiConfig);
               }}
             >
               <SelectTrigger className="w-[160px]">
@@ -728,6 +992,123 @@ function SettingsView({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5" />
+            {t("settings.ai.title")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("settings.ai.provider")}</label>
+            <Select
+              value={aiProvider}
+              onValueChange={(val) => {
+                const key = val as AiProviderKey;
+                const preset = AI_PROVIDERS[key];
+                setAiProvider(key);
+                if (preset.baseUrl) setAiBaseUrl(preset.baseUrl);
+                const defaultModel = preset.models.length > 0 ? preset.models[0] : "";
+                setAiModel(defaultModel);
+                persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
+                  provider: key,
+                  api_base_url: preset.baseUrl || aiBaseUrl,
+                  api_key: aiApiKey,
+                  model: defaultModel || aiModel,
+                });
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="opencode-go">OpenCode Go</SelectItem>
+                <SelectItem value="zhipu-coding-plan">智谱 Coding Plan</SelectItem>
+                <SelectItem value="custom">{t("settings.ai.customProvider")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {AI_PROVIDERS[aiProvider].showBaseUrl && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("settings.ai.baseUrl")}</label>
+              <Input
+                value={aiBaseUrl}
+                onChange={(e) => {
+                  setAiBaseUrl(e.target.value);
+                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
+                    provider: aiProvider,
+                    api_base_url: e.target.value,
+                    api_key: aiApiKey,
+                    model: aiModel,
+                  });
+                }}
+                placeholder="https://api.example.com/v1"
+              />
+            </div>
+          )}
+          {AI_PROVIDERS[aiProvider].needsApiKey && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("settings.ai.apiKey")}</label>
+              <Input
+                type="password"
+                value={aiApiKey}
+                onChange={(e) => {
+                  setAiApiKey(e.target.value);
+                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
+                    provider: aiProvider,
+                    api_base_url: aiBaseUrl,
+                    api_key: e.target.value,
+                    model: aiModel,
+                  });
+                }}
+                placeholder={t("settings.ai.apiKeyPlaceholder")}
+              />
+            </div>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("settings.ai.model")}</label>
+            {AI_PROVIDERS[aiProvider].models.length > 0 ? (
+              <Select
+                value={aiModel}
+                onValueChange={(val) => {
+                  setAiModel(val);
+                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
+                    provider: aiProvider,
+                    api_base_url: aiBaseUrl,
+                    api_key: aiApiKey,
+                    model: val,
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_PROVIDERS[aiProvider].models.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={aiModel}
+                onChange={(e) => {
+                  setAiModel(e.target.value);
+                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
+                    provider: aiProvider,
+                    api_base_url: aiBaseUrl,
+                    api_key: aiApiKey,
+                    model: e.target.value,
+                  });
+                }}
+                placeholder="model-name"
+              />
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 use chrono::Local;
+use chrono::Timelike;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
@@ -7,6 +8,9 @@ use std::sync::Mutex;
 use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
+use xcap;
+use image::{DynamicImage, RgbaImage};
+use base64::{Engine, engine::general_purpose::STANDARD};
 
 fn default_shortcut() -> String {
     "CommandOrControl+Shift+Space".to_string()
@@ -133,6 +137,17 @@ struct ShortcutState(pub Mutex<String>);
 
 // Shared state for the current screenshot shortcut
 struct ScreenshotShortcutState(pub Mutex<String>);
+
+// Captured screen data
+#[derive(Debug, Clone)]
+struct CapturedScreen {
+    image: RgbaImage,
+    width: u32,
+    height: u32,
+}
+
+// Shared state for captured screen
+struct CaptureState(pub Mutex<Option<CapturedScreen>>);
 
 // ─── Template (file-based) ───
 
@@ -512,6 +527,153 @@ fn delete_template(app: tauri::AppHandle, filename: String) -> Result<(), String
     }
 }
 
+#[tauri::command]
+fn capture_screens(
+    app: tauri::AppHandle,
+    state: tauri::State<CaptureState>,
+) -> Result<(String, u32, u32), String> {
+    // Get primary monitor (index 0)
+    let monitors = xcap::Monitor::all().map_err(|e| e.to_string())?;
+    if monitors.is_empty() {
+        return Err("No monitors found".to_string());
+    }
+    
+    let primary_monitor = &monitors[0];
+    let width = primary_monitor.width().map_err(|e| e.to_string())?;
+    let height = primary_monitor.height().map_err(|e| e.to_string())?;
+    
+    // Capture the primary monitor
+    let image = primary_monitor.capture_image().map_err(|e| e.to_string())?;
+    
+    // Store in CaptureState
+    *state.0.lock().unwrap() = Some(CapturedScreen {
+        image: image.clone(),
+        width,
+        height,
+    });
+    
+    // Convert to PNG base64
+    let mut buffer = Vec::new();
+    image.write_to(&mut std::io::Cursor::new(&mut buffer), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+    let base64_string = STANDARD.encode(&buffer);
+    let data_url = format!("data:image/png;base64,{}", base64_string);
+    
+    Ok((data_url, width, height))
+}
+
+#[tauri::command]
+fn crop_and_save_screenshot(
+    app: tauri::AppHandle,
+    state: tauri::State<CaptureState>,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<String, String> {
+    // Get captured screen
+    let captured = state.0.lock().unwrap().take()
+        .ok_or("No captured screen found. Please call capture_screens first.")?;
+    
+    // Validate coordinates
+    let image_width = captured.image.width();
+    let image_height = captured.image.height();
+    
+    if x >= image_width || y >= image_height {
+        return Err("Selection coordinates are out of bounds".to_string());
+    }
+    
+    // Clamp coordinates to image bounds
+    let x = x.min(image_width - 1);
+    let y = y.min(image_height - 1);
+    let width = width.min(image_width - x);
+    let height = height.min(image_height - y);
+    
+    // Minimum selection size check (10x10 pixels)
+    if width < 10 || height < 10 {
+        return Err("Selection is too small (minimum 10x10 pixels)".to_string());
+    }
+    
+    // Crop the image
+    let cropped_image = image::imageops::crop_imm(
+        &captured.image,
+        x, y, width, height
+    ).to_image();
+    
+    // Encode as WebP
+    let mut buffer = Vec::new();
+    let encoder = image::codecs::webp::WebPEncoder::new_lossless(buffer.as_mut_slice());
+    DynamicImage::ImageRgba8(cropped_image)
+        .write_to(&mut std::io::Cursor::new(&mut buffer), image::ImageFormat::WebP)
+        .map_err(|e| e.to_string())?;
+    
+    // Generate filename: YYYY-MM-DD_HH-mm-ss.webp
+    let now = Local::now();
+    let filename = format!(
+        "{}_{:02}-{:02}-{:02}.webp",
+        now.format("%Y-%m-%d"),
+        now.hour(),
+        now.minute(),
+        now.second()
+    );
+    
+    // Save to screenshots directory
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    let screenshots_path = PathBuf::from(&config.storage_path).join("screenshots");
+    fs::create_dir_all(&screenshots_path).map_err(|e| e.to_string())?;
+    
+    let file_path = screenshots_path.join(&filename);
+    fs::write(&file_path, buffer).map_err(|e| e.to_string())?;
+    
+    // Return relative path for markdown reference
+    let relative_path = format!("../screenshots/{}", filename);
+    
+    Ok(relative_path)
+}
+
+#[tauri::command]
+fn save_screenshot_log_entry(
+    app: tauri::AppHandle,
+    image_path: String,
+) -> Result<(), String> {
+    let now = Local::now();
+    let date = now.format("%Y-%m-%d").to_string();
+    let time = now.format("%H:%M").to_string();
+    
+    let content = format!("![Screenshot]({})", image_path);
+    save_log(app, date, time, content)
+}
+
+#[tauri::command]
+fn close_screenshot_overlay(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("screenshot-overlay") {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    
+    // Emit event to refresh main window
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.emit("focusChanged", true);
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_screenshot(app: tauri::AppHandle) -> Result<(), String> {
+    // Clear capture state
+    let capture_state = app.try_state::<CaptureState>();
+    if let Some(state) = capture_state {
+        *state.0.lock().unwrap() = None;
+    }
+    
+    // Close overlay
+    if let Some(window) = app.get_webview_window("screenshot-overlay") {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -531,6 +693,7 @@ pub fn run() {
         )
         .manage(ShortcutState(Mutex::new(default_shortcut())))
         .manage(ScreenshotShortcutState(Mutex::new(default_screenshot_shortcut())))
+        .manage(CaptureState(Mutex::new(None)))
         .setup(move |app| {
             // Register global shortcut from Rust — works even before JS loads,
             // and works when the main window is hidden (minimized to tray)
@@ -668,6 +831,11 @@ pub fn run() {
             read_template,
             write_template,
             delete_template,
+            capture_screens,
+            crop_and_save_screenshot,
+            save_screenshot_log_entry,
+            close_screenshot_overlay,
+            cancel_screenshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
