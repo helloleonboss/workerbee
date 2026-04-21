@@ -240,6 +240,7 @@ fn save_config(
     app: tauri::AppHandle,
     config: AppConfig,
     state: tauri::State<'_, ShortcutState>,
+    screenshot_state: tauri::State<'_, ScreenshotShortcutState>,
 ) -> Result<(), String> {
     ensure_dirs(&config.storage_path)?;
     ensure_default_templates(&config.storage_path);
@@ -254,15 +255,34 @@ fn save_config(
             let _ = app.global_shortcut().unregister(old);
         }
         // Register new
-        if let Ok(new_short) = new_shortcut.parse::<tauri_plugin_global_shortcut::Shortcut>() {
-            match app.global_shortcut().register(new_short) {
+        if let Ok(new_shortcut) = new_shortcut.parse::<tauri_plugin_global_shortcut::Shortcut>() {
+            match app.global_shortcut().register(new_shortcut) {
                 Ok(_) => eprintln!("[shortcut] Re-registered: {}", new_shortcut),
                 Err(e) => eprintln!("[shortcut] Failed to re-register: {} - {}", new_shortcut, e),
             }
         }
     }
 
+    // If screenshot shortcut changed, re-register it
+    let new_screenshot_shortcut = &config.screenshot_shortcut;
+    let old_screenshot_shortcut = screenshot_state.0.lock().unwrap().clone();
+    if new_screenshot_shortcut != &old_screenshot_shortcut {
+        use tauri_plugin_global_shortcut::GlobalShortcutExt;
+        // Unregister old
+        if let Ok(old) = old_screenshot_shortcut.parse::<tauri_plugin_global_shortcut::Shortcut>() {
+            let _ = app.global_shortcut().unregister(old);
+        }
+        // Register new
+        if let Ok(new_shortcut) = new_screenshot_shortcut.parse::<tauri_plugin_global_shortcut::Shortcut>() {
+            match app.global_shortcut().register(new_shortcut) {
+                Ok(_) => eprintln!("[screenshot] Re-registered: {}", new_screenshot_shortcut),
+                Err(e) => eprintln!("[screenshot] Failed to re-register: {} - {}", new_screenshot_shortcut, e),
+            }
+        }
+    }
+
     *state.0.lock().unwrap() = config.shortcut.clone();
+    *screenshot_state.0.lock().unwrap() = config.screenshot_shortcut.clone();
     config.save(&app)
 }
 
@@ -424,6 +444,51 @@ fn hide_quick_input(app: tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("quick-input") {
         let _ = window.hide();
     }
+}
+
+fn show_screenshot_overlay(app: &tauri::AppHandle) -> Result<(), String> {
+    // First capture the screen
+    let (image_base64, monitor_width, monitor_height) = capture_screens(app.clone(), app.state())?;
+    
+    // Get or create the overlay window
+    let window = app.get_webview_window("screenshot-overlay");
+    
+    if window.is_none() {
+        // Create overlay window if it doesn't exist
+        let overlay_url: tauri::WebviewUrl = if cfg!(debug_assertions) {
+            tauri::WebviewUrl::External(
+                "http://localhost:1420/screenshot-overlay.html".parse().unwrap(),
+            )
+        } else {
+            tauri::WebviewUrl::App("screenshot-overlay.html".into())
+        };
+        
+        tauri::WebviewWindowBuilder::new(app, "screenshot-overlay", overlay_url)
+            .inner_size(monitor_width as f64, monitor_height as f64)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false)
+            .transparent(true)
+            .build()
+            .map_err(|e| e.to_string())?;
+    }
+    
+    let overlay = app.get_webview_window("screenshot-overlay").unwrap();
+    
+    // Show the overlay
+    overlay.show().map_err(|e| e.to_string())?;
+    overlay.set_focus().map_err(|e| e.to_string())?;
+    
+    // Send screenshot data to the overlay
+    let screenshot_data = serde_json::json!({
+        "image_base64": image_base64,
+        "monitor_width": monitor_width,
+        "monitor_height": monitor_height
+    });
+    let _ = app.emit("screenshot-overlay-ready", screenshot_data);
+    
+    Ok(())
 }
 
 #[tauri::command]
@@ -723,6 +788,16 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(move |app, _shortcut, event| {
+                    if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        return;
+                    }
+                    let _ = show_screenshot_overlay(app);
+                })
+                .build(),
+        )
         .manage(ShortcutState(Mutex::new(default_shortcut())))
         .manage(ScreenshotShortcutState(Mutex::new(default_screenshot_shortcut())))
         .manage(CaptureState(Mutex::new(None)))
@@ -741,6 +816,23 @@ pub fn run() {
                     match app_handle.global_shortcut().register(shortcut) {
                         Ok(_) => eprintln!("[shortcut] Registered: {}", shortcut_str),
                         Err(e) => eprintln!("[shortcut] Failed: {} - {}", shortcut_str, e),
+                    }
+                }
+            }
+
+            // Register screenshot shortcut
+            {
+                let app_handle = app.handle().clone();
+                let config = AppConfig::load_or_default(&app_handle);
+                let screenshot_shortcut_str = config.screenshot_shortcut.clone();
+                *app.state::<ScreenshotShortcutState>().0.lock().unwrap() = screenshot_shortcut_str.clone();
+
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                if let Ok(screenshot_shortcut) = screenshot_shortcut_str.parse::<tauri_plugin_global_shortcut::Shortcut>()
+                {
+                    match app_handle.global_shortcut().register(screenshot_shortcut) {
+                        Ok(_) => eprintln!("[screenshot] Registered: {}", screenshot_shortcut_str),
+                        Err(e) => eprintln!("[screenshot] Failed: {} - {}", screenshot_shortcut_str, e),
                     }
                 }
             }
