@@ -12,7 +12,10 @@
   "today": {
     "title": "오늘의 기록",
     "empty": "오늘은 아직 기록이 없습니다",
-    "emptyHint": "{shortcut} 을 눌러快速 기록"
+    "emptyHint": "{shortcut} 을 눌러快速 기록",
+    "generateReport": "일일 보고서 생성",
+    "noConfig": "먼저 설정에서 AI를 구성하세요",
+    "noEntries": "오늘은 기록이 없어 보고서를 생성할 수 없습니다"
   },
   "logs": {
     "title": "로그 浏览",
@@ -26,7 +29,42 @@
     "selectReport": "보고서를 선택하여 보기",
     "edit": "편집",
     "preview": "미리보기",
-    "viewReports": "기존 보고서"
+    "viewReports": "기존 보고서",
+    "generate": {
+      "button": "보고서 생성",
+      "generating": "생성 중...",
+      "today": "오늘",
+      "week": "이번 주",
+      "month": "이번 달",
+      "noConfig": "먼저 설정에서 AI를 구성하세요",
+      "noLogs": "선택한 날짜 범위에 로그가 없습니다",
+      "dialogTitle": "보고서 생성",
+      "templateLabel": "템플릿",
+      "modelLabel": "모델",
+      "changeInSettings": "설정에서 변경",
+      "startGenerate": "시작",
+      "thinking": "AI가 생각 중...",
+      "viewThinking": "사고 과정 보기",
+      "buildingReport": "보고서 생성 중...",
+      "saveReport": "보고서 저장",
+      "regenerate": "재생성",
+      "selectFilesHint": "보고서에 포함할 로그 파일을 확인하세요:",
+      "confirmSelection": "확인 및 생성",
+      "saved": "보고서가 저장되었습니다",
+      "noTemplates": "템플릿이 없습니다. 먼저 추가하세요"
+    },
+    "config": {
+      "aiTitle": "AI 설정",
+      "presetsTitle": "보고서 형식",
+      "addPreset": "형식 추가",
+      "editPrompt": "프롬프트 편집",
+      "newPresetName": "새 형식",
+      "noPresets": "형식이 없습니다",
+      "configureAI": "AI 설정",
+      "notConfigured": "미설정",
+      "moreSettings": "더 많은 설정",
+      "managePresets": "형식 관리..."
+    }
   },
   "templates": {
     "title": "프롬프트",
@@ -51,7 +89,10 @@
       "closeRecord": "기록 상자 닫기",
       "hint": "快速 기록 상자를 여는 전역 단축키를 설정, 수정 키(Ctrl/Alt/Shift)를至少 하나 포함해야 합니다",
       "showHintBar": "단축키 힌트 표시",
-      "helpTitle": "단축키 설명"
+      "helpTitle": "단축키 설명",
+      "screenshot": "스크린샷",
+      "screenshotHint": "스크린샷의 전역 단축키를 설정합니다. 최소 하나의 수정자 키가 필요합니다",
+      "screenshotDefault": "기본 스크린샷 단축키"
     },
     "appearance": {
       "title": "외관",
@@ -61,6 +102,26 @@
       "dark": "다크",
       "language": "언어",
       "description": "앱의 테마 스타일을 선택하세요"
+    },
+    "ai": {
+      "title": "AI 설정",
+      "provider": "제공자",
+      "customProvider": "사용자 정의 API",
+      "baseUrl": "API 베이스 URL",
+      "apiKey": "API 키",
+      "apiKeyPlaceholder": "API 키를 입력하세요",
+      "model": "모델"
+    },
+    "reportFormat": {
+      "title": "보고서 형식",
+      "daily": "일일 보고서",
+      "weekly": "주간 보고서",
+      "monthly": "월간 보고서",
+      "quarterly": "분기별 보고서",
+      "annual": "연간 보고서",
+      "custom": "사용자 정의",
+      "customPlaceholder": "사용자 정의 보고서 형식을 입력하세요...",
+      "presetHint": "미리 설정된 형식을 선택하면 AI가 해당 형식으로 보고서를 생성합니다"
     }
   },
   "setup": {
@@ -109,5 +170,10 @@
     "editTimeDesc": "시간 영역 클릭 후 Enter로 내용에 포커스",
     "editSave": "편집 저장",
     "editSaveDesc": "Ctrl+Enter 저장 · ESC 취소"
+  },
+  "screenshot": {
+    "overlayHint": "드래그하여 스크린샷 영역 선택 · ESC로 취소",
+    "saving": "스크린샷 저장 중",
+    "cancelled": "스크린샷 취소됨"
   }
 }

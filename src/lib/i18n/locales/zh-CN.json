@@ -12,7 +12,10 @@
   "today": {
     "title": "今日记录",
     "empty": "今天还没有记录",
-    "emptyHint": "按 {shortcut} 快速记录"
+    "emptyHint": "按 {shortcut} 快速记录",
+    "generateReport": "生成日报",
+    "noConfig": "请先在设置中配置 AI",
+    "noEntries": "今天还没有记录，无法生成日报"
   },
   "logs": {
     "title": "日志浏览",
@@ -26,7 +29,42 @@
     "selectReport": "选择一份报告查看",
     "edit": "编辑",
     "preview": "预览",
-    "viewReports": "已有报告"
+    "viewReports": "已有报告",
+    "generate": {
+      "button": "生成报告",
+      "generating": "生成中...",
+      "today": "今天",
+      "week": "本周",
+      "month": "本月",
+      "noConfig": "请先在设置中配置 AI",
+      "noLogs": "所选日期范围内没有日志",
+      "dialogTitle": "生成报告",
+      "templateLabel": "参考模板",
+      "modelLabel": "模型",
+      "changeInSettings": "在设置中修改",
+      "startGenerate": "开始生成",
+      "thinking": "AI 正在思考...",
+      "viewThinking": "查看思考过程",
+      "buildingReport": "正在生成报告...",
+      "saveReport": "保存报告",
+      "regenerate": "重新生成",
+      "selectFilesHint": "请确认要包含在报告中的日志文件：",
+      "confirmSelection": "确认并生成",
+      "saved": "报告已保存",
+      "noTemplates": "暂无模板，请先添加"
+    },
+    "config": {
+      "aiTitle": "AI 配置",
+      "presetsTitle": "报告格式",
+      "addPreset": "添加格式",
+      "editPrompt": "编辑提示词",
+      "newPresetName": "新格式",
+      "noPresets": "暂无格式，点击添加",
+      "configureAI": "配置 AI",
+      "notConfigured": "未配置",
+      "moreSettings": "更多设置",
+      "managePresets": "管理格式..."
+    }
   },
   "templates": {
     "title": "报告提示词",
@@ -49,6 +87,9 @@
       "title": "快捷键",
       "quickRecord": "快速记录",
       "closeRecord": "关闭记录框",
+      "screenshot": "截图",
+      "screenshotHint": "设置用于快捷截图的全局快捷键，必须包含至少一个修饰键",
+      "screenshotDefault": "默认截图快捷键",
       "hint": "设置用于呼出快速记录框的全局快捷键，必须包含至少一个修饰键",
       "showHintBar": "显示快捷键提示",
       "helpTitle": "快捷键说明"
@@ -61,6 +102,26 @@
       "dark": "深色",
       "language": "语言",
       "description": "选择应用的主题风格"
+    },
+    "ai": {
+      "title": "AI 设置",
+      "provider": "提供商",
+      "customProvider": "自定义 API",
+      "baseUrl": "API 地址",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "输入你的 API Key",
+      "model": "模型"
+    },
+    "reportFormat": {
+      "title": "报告格式",
+      "daily": "日报",
+      "weekly": "周报",
+      "monthly": "月报",
+      "quarterly": "季报",
+      "annual": "年报",
+      "custom": "自定义",
+      "customPlaceholder": "输入自定义报告格式要求...",
+      "presetHint": "选择预设格式，AI 将按此格式生成报告"
     }
   },
   "setup": {
@@ -109,5 +170,10 @@
     "editTimeDesc": "点击时间区域后按 Enter 聚焦内容",
     "editSave": "保存编辑",
     "editSaveDesc": "Ctrl+Enter 保存 · ESC 取消"
+  },
+  "screenshot": {
+    "overlayHint": "拖拽选择截图区域 · ESC 取消",
+    "saving": "截图保存中",
+    "cancelled": "截图已取消"
   }
 }

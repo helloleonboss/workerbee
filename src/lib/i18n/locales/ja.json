@@ -12,7 +12,10 @@
   "today": {
     "title": "今日の記録",
     "empty": "今日はまだ記録がありません",
-    "emptyHint": "{shortcut} を押して快速記録"
+    "emptyHint": "{shortcut} を押して快速記録",
+    "generateReport": "日報を生成",
+    "noConfig": "先に設定でAIを構成してください",
+    "noEntries": "今日はまだ記録がありません、日報を生成できません"
   },
   "logs": {
     "title": "ログ閲覧",
@@ -26,7 +29,42 @@
     "selectReport": "レポートを選択して表示",
     "edit": "編集",
     "preview": "プレビュー",
-    "viewReports": "既存レポート"
+    "viewReports": "既存レポート",
+    "generate": {
+      "button": "レポート生成",
+      "generating": "生成中...",
+      "today": "今日",
+      "week": "今週",
+      "month": "今月",
+      "noConfig": "先に設定でAIを構成してください",
+      "noLogs": "選択した日付範囲にログがありません",
+      "dialogTitle": "レポート生成",
+      "templateLabel": "テンプレート",
+      "modelLabel": "モデル",
+      "changeInSettings": "設定で変更",
+      "startGenerate": "開始",
+      "thinking": "AIが思考中...",
+      "viewThinking": "思考プロセスを表示",
+      "buildingReport": "レポートを生成中...",
+      "saveReport": "レポートを保存",
+      "regenerate": "再生成",
+      "selectFilesHint": "レポートに含めるログファイルを確認してください：",
+      "confirmSelection": "確認して生成",
+      "saved": "レポートを保存しました",
+      "noTemplates": "テンプレートがありません。先に追加してください"
+    },
+    "config": {
+      "aiTitle": "AI設定",
+      "presetsTitle": "レポート形式",
+      "addPreset": "形式を追加",
+      "editPrompt": "プロンプト編集",
+      "newPresetName": "新しい形式",
+      "noPresets": "形式がありません",
+      "configureAI": "AI設定",
+      "notConfigured": "未設定",
+      "moreSettings": "その他の設定",
+      "managePresets": "形式を管理..."
+    }
   },
   "templates": {
     "title": "プロンプト",
@@ -51,7 +89,10 @@
       "closeRecord": "記録框を閉じる",
       "hint": "快速記録框を呼び出すグローバルショートカットを設定、修飾キー(Ctrl/Alt/Shift)を1つ以上含む必要がある",
       "showHintBar": "ショートカットヒントを表示",
-      "helpTitle": "ショートカット説明"
+      "helpTitle": "ショートカット説明",
+      "screenshot": "スクリーンショット",
+      "screenshotHint": "スクリーンショットのグローバルショートカットを設定します。少なくとも1つの修飾キーを含める必要があります",
+      "screenshotDefault": "デフォルトのスクリーンショットショートカット"
     },
     "appearance": {
       "title": "外観",
@@ -61,6 +102,26 @@
       "dark": "ダーク",
       "language": "言語",
       "description": "アプリのテーマを選択"
+    },
+    "ai": {
+      "title": "AI設定",
+      "provider": "プロバイダー",
+      "customProvider": "カスタムAPI",
+      "baseUrl": "APIベースURL",
+      "apiKey": "APIキー",
+      "apiKeyPlaceholder": "APIキーを入力",
+      "model": "モデル"
+    },
+    "reportFormat": {
+      "title": "レポート形式",
+      "daily": "日報",
+      "weekly": "週報",
+      "monthly": "月報",
+      "quarterly": "四半期報告",
+      "annual": "年次報告",
+      "custom": "カスタム",
+      "customPlaceholder": "カスタムレポート形式を入力...",
+      "presetHint": "プリセット形式を選択すると、AIがその形式でレポートを生成します"
     }
   },
   "setup": {
@@ -109,5 +170,10 @@
     "editTimeDesc": "時刻エリアをクリック後、Enterで内容にフォーカス",
     "editSave": "編集を保存",
     "editSaveDesc": "Ctrl+Enterで保存 · ESCでキャンセル"
+  },
+  "screenshot": {
+    "cancelled": "スクリーンショットキャンセル",
+    "saving": "スクリーンショット保存中",
+    "overlayHint": "ドラッグしてスクリーンショット範囲を選択 · ESCでキャンセル"
   }
 }

@@ -12,7 +12,10 @@
   "today": {
     "title": "Today's Log",
     "empty": "No entries today",
-    "emptyHint": "Press {shortcut} for quick logging"
+    "emptyHint": "Press {shortcut} for quick logging",
+    "generateReport": "Generate Daily Report",
+    "noConfig": "Configure AI in settings first",
+    "noEntries": "No entries today, cannot generate report"
   },
   "logs": {
     "title": "Log Browser",
@@ -26,7 +29,42 @@
     "selectReport": "Select a report to view",
     "edit": "Edit",
     "preview": "Preview",
-    "viewReports": "Existing Reports"
+    "viewReports": "Existing Reports",
+    "generate": {
+      "button": "Generate Report",
+      "generating": "Generating...",
+      "today": "Today",
+      "week": "This Week",
+      "month": "This Month",
+      "noConfig": "Configure AI in settings first",
+      "noLogs": "No logs found in the selected date range",
+      "dialogTitle": "Generate Report",
+      "templateLabel": "Template",
+      "modelLabel": "Model",
+      "changeInSettings": "Change in Settings",
+      "startGenerate": "Start",
+      "thinking": "AI is thinking...",
+      "viewThinking": "View thinking process",
+      "buildingReport": "Building report...",
+      "saveReport": "Save Report",
+      "regenerate": "Regenerate",
+      "selectFilesHint": "Confirm the log files to include in the report:",
+      "confirmSelection": "Confirm & Generate",
+      "saved": "Report saved",
+      "noTemplates": "No templates yet, please add one first"
+    },
+    "config": {
+      "aiTitle": "AI Configuration",
+      "presetsTitle": "Report Format",
+      "addPreset": "Add Format",
+      "editPrompt": "Edit Prompt",
+      "newPresetName": "New Format",
+      "noPresets": "No formats, click to add",
+      "configureAI": "Configure AI",
+      "notConfigured": "Not configured",
+      "moreSettings": "More Settings",
+      "managePresets": "Manage Formats..."
+    }
   },
   "templates": {
     "title": "Prompts",
@@ -49,6 +87,9 @@
       "title": "Shortcuts",
       "quickRecord": "Quick Record",
       "closeRecord": "Close Record Box",
+      "screenshot": "Screenshot",
+      "screenshotHint": "Set the global shortcut to take a screenshot, must include at least one modifier key",
+      "screenshotDefault": "Default screenshot shortcut",
       "hint": "Set the global shortcut to open the quick record window, must include at least one modifier key",
       "showHintBar": "Show shortcut hints",
       "helpTitle": "Shortcut Guide"
@@ -61,6 +102,26 @@
       "dark": "Dark",
       "language": "Language",
       "description": "Choose the app's theme style"
+    },
+    "ai": {
+      "title": "AI Settings",
+      "provider": "Provider",
+      "customProvider": "Custom API",
+      "baseUrl": "API Base URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter your API Key",
+      "model": "Model"
+    },
+    "reportFormat": {
+      "title": "Report Format",
+      "daily": "Daily Report",
+      "weekly": "Weekly Report",
+      "monthly": "Monthly Report",
+      "quarterly": "Quarterly Report",
+      "annual": "Annual Report",
+      "custom": "Custom",
+      "customPlaceholder": "Enter custom report format requirements...",
+      "presetHint": "Select a preset format, AI will generate reports accordingly"
     }
   },
   "setup": {
@@ -102,12 +163,17 @@
     "enterSubmit": "Enter",
     "enterSubmitDesc": "Submit current content",
     "shiftEnter": "Shift+Enter",
-    "shiftEnterDesc": "Insert newline",
+    "shiftEnterDesc": "Newline",
     "escClose": "ESC",
-    "escCloseDesc": "Close window (discard)",
+    "escCloseDesc": "Close window (without saving)",
     "editTime": "Edit Time",
-    "editTimeDesc": "After clicking time area, press Enter to focus content",
+    "editTimeDesc": "Click time area then press Enter to focus content",
     "editSave": "Save Edit",
     "editSaveDesc": "Ctrl+Enter to save · ESC to cancel"
+  },
+  "screenshot": {
+    "overlayHint": "Drag to select screenshot area · ESC to cancel",
+    "saving": "Saving screenshot",
+    "cancelled": "Screenshot cancelled"
   }
 }

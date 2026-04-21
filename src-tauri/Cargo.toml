@@ -26,4 +26,9 @@ tauri-plugin-global-shortcut = "2.3.1"
 tauri-plugin-dialog = "2.7.0"
 chrono = "0.4.44"
 dirs = "6.0.0"
+tauri-plugin-http = { version = "2", features = ["stream"] }
+tauri-plugin-agent-control = "0.1"
+xcap = "0.4"
+image = { version = "0.25", features = ["webp", "png"] }
+base64 = "0.22"
 

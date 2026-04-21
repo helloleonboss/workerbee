@@ -21,6 +21,7 @@ export default defineConfig(async () => ({
       input: {
         main: path.resolve(__dirname, "index.html"),
         "quick-input": path.resolve(__dirname, "quick-input.html"),
+        "screenshot-overlay": path.resolve(__dirname, "screenshot-overlay.html"),
       },
     },
   },
