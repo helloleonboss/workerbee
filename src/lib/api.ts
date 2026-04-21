@@ -225,3 +225,7 @@ export async function closeScreenshotOverlay(): Promise<void> {
 export async function cancelScreenshot(): Promise<void> {
   return invoke("cancel_screenshot");
 }
+
+export async function readScreenshotAsBase64(relativePath: string): Promise<string> {
+  return invoke("read_screenshot_as_base64", { relativePath });
+}

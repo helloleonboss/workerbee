@@ -674,6 +674,38 @@ fn cancel_screenshot(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn read_screenshot_as_base64(app: tauri::AppHandle, relative_path: String) -> Result<String, String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+    
+    // Convert relative path like "../screenshots/xxx.webp" to absolute path
+    let absolute_path = if relative_path.starts_with("../") {
+        // Go up one directory from logs/ to storage_path/
+        PathBuf::from(&config.storage_path).join(&relative_path[3..])
+    } else if relative_path.starts_with("screenshots/") {
+        PathBuf::from(&config.storage_path).join(&relative_path)
+    } else {
+        PathBuf::from(&relative_path)
+    };
+    
+    // Read the image file
+    let image_data = fs::read(&absolute_path).map_err(|e| e.to_string())?;
+    
+    // Encode as base64
+    let base64_string = STANDARD.encode(&image_data);
+    
+    // Determine image format from file extension
+    let format = if absolute_path.extension().and_then(|s| s.to_str()) == Some("webp") {
+        "webp"
+    } else if absolute_path.extension().and_then(|s| s.to_str()) == Some("png") {
+        "png"
+    } else {
+        "jpeg" // Default fallback
+    };
+    
+    Ok(format!("data:image/{};base64,{}", format, base64_string))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -836,6 +868,7 @@ pub fn run() {
             save_screenshot_log_entry,
             close_screenshot_overlay,
             cancel_screenshot,
+            read_screenshot_as_base64,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
