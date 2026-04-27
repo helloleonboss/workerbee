@@ -519,3 +519,50 @@ pub fn delete_screenshot(app: tauri::AppHandle, filename: String) -> Result<(), 
         Err(format!("截图文件 {} 不存在", filename))
     }
 }
+
+/// Save a pasted image (base64-encoded) from clipboard to the screenshots directory.
+/// Returns the relative path for markdown reference, e.g. "../screenshots/xxx.webp".
+#[tauri::command]
+pub fn save_pasted_image(
+    app: tauri::AppHandle,
+    base64_data: String,
+    format: String,
+) -> Result<String, String> {
+    let config = AppConfig::load(&app).ok_or("请先选择存储文件夹")?;
+
+    // Strip data URL prefix if present (e.g. "data:image/png;base64,...")
+    let raw_base64 = if let Some(idx) = base64_data.find(",") {
+        &base64_data[idx + 1..]
+    } else {
+        &base64_data
+    };
+
+    let image_bytes = STANDARD.decode(raw_base64).map_err(|e| format!("Invalid base64: {}", e))?;
+
+    // Determine format and extension
+    let (ext, _image_format) = match format.to_lowercase().as_str() {
+        "png" => ("png", image::ImageFormat::Png),
+        "jpeg" | "jpg" => ("jpeg", image::ImageFormat::Jpeg),
+        _ => ("webp", image::ImageFormat::WebP),
+    };
+
+    // Generate filename: paste_YYYY-MM-DD_HH-mm-ss.ext
+    let now = Local::now();
+    let filename = format!(
+        "paste_{}_{}-{}-{}.{}",
+        now.format("%Y-%m-%d"),
+        now.hour(),
+        now.minute(),
+        now.second(),
+        ext
+    );
+
+    let screenshots_dir = PathBuf::from(&config.storage_path).join("screenshots");
+    fs::create_dir_all(&screenshots_dir).map_err(|e| e.to_string())?;
+
+    let file_path = screenshots_dir.join(&filename);
+    fs::write(&file_path, image_bytes).map_err(|e| e.to_string())?;
+
+    let relative_path = format!("../screenshots/{}", filename);
+    Ok(relative_path)
+}

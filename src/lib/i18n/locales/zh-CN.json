@@ -187,5 +187,15 @@
     "deleteSuccess": "截图已删除",
     "preview": "预览",
     "insertToLog": "插入到日志"
+  },
+  "opencode": {
+    "install": {
+      "title": "需要安装 OpenCode",
+      "description": "生成日报功能需要 OpenCode 辅助。请先安装后再使用。"
+    },
+    "start": {
+      "button": "启动 OpenCode",
+      "hint": "点击下方按钮启动 OpenCode AI 助手"
+    }
   }
 }

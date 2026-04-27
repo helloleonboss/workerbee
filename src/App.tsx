@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -6,18 +6,28 @@ import {
   saveConfig,
   readLog,
   writeLog,
-  writeReport,
   listLogs,
   DEFAULT_SHORTCUT,
   DEFAULT_SCREENSHOT_SHORTCUT,
-  AI_PROVIDERS,
-  type AiConfig,
-  type AiProviderKey,
+  checkOpenCodeInstalled,
+  startOpenCode,
+  isOpencodeRunning,
   type AppConfig,
   type Theme,
 } from "./lib/api";
-import { formatCurrentDate, parseLogEntries, type LogEntry } from "./lib/utils";
+import { formatCurrentDate } from "./lib/utils";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { t, initLocale, setLocale, SUPPORTED_LOCALES } from "./lib/i18n";
+
+/** URL-safe base64 encoding matching OpenCode's encode.ts */
+function base64EncodePath(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+const OPENCODE_PORT = 4096;
+const OPENCODE_BASE = `http://127.0.0.1:${OPENCODE_PORT}`;
 import { LogViewer } from "./components/LogViewer";
 import { SetupGuide } from "./components/SetupGuide";
 import { ShortcutRecorder, formatShortcutForDisplay } from "./components/ShortcutRecorder";
@@ -25,7 +35,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Input } from "./components/ui/input";
-import { ScrollArea } from "./components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -33,23 +42,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import { generateReport } from "./lib/ai/generate";
-import { registry } from "./lib/ai/registry";
-import {
-  Renderer,
-  StateProvider,
-  ActionProvider,
-  VisibilityProvider,
-} from "@json-render/react";
-import type { Spec } from "@json-render/core";
 import { Dialog, DialogTrigger } from "./components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { FolderOpen, FileText, Settings, Sun, HelpCircle, Sparkles, Loader2 } from "lucide-react";
+import { FolderOpen, Settings, Sun, HelpCircle } from "lucide-react";
 import { ShortcutsHelpDialog } from "./components/ShortcutsHelpDialog";
 import { ReportsView } from "./components/ReportsView";
-import { InlineEntryContent } from "./components/InlineEntryContent";
+import { RichTextEditor } from "./components/RichTextEditor";
 
-type View = "today" | "logs" | "reports" | "settings";
+type View = "today" | "logs" | "reports" | "ai" | "settings";
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -60,6 +59,7 @@ function App() {
 
   const [logContent, setLogContent] = useState("");
   const [theme, setTheme] = useState<Theme>("system");
+  const [aiSessionUrl, setAiSessionUrl] = useState<string | undefined>(undefined);
 
   // Apply theme to document root
   useEffect(() => {
@@ -226,6 +226,12 @@ function App() {
                 {t("nav.reports")}
               </TabsTrigger>
               <TabsTrigger
+                active={view === "ai"}
+                onClick={() => setView("ai")}
+              >
+                AI
+              </TabsTrigger>
+              <TabsTrigger
                 active={view === "settings"}
                 onClick={() => setView("settings")}
               >
@@ -239,6 +245,8 @@ function App() {
               shortcutDisplay={formatShortcutForDisplay(activeShortcut)}
               shortcut={activeShortcut}
               config={config}
+              onSwitchToAi={() => setView("ai")}
+              onSessionCreated={(url: string | undefined) => setAiSessionUrl(url)}
             />
           </TabsContent>
 
@@ -257,6 +265,10 @@ function App() {
             <ReportsView config={config} onConfigChange={handleConfigChange} />
           </TabsContent>
 
+          <TabsContent active={view === "ai"} className="flex-1 overflow-hidden">
+            <OpenCodeView config={config} sessionUrl={aiSessionUrl} />
+          </TabsContent>
+
           <TabsContent active={view === "settings"} className="flex-1 min-h-0 overflow-auto flex items-center p-4">
             <div className="w-full max-w-lg">
               <SettingsView config={config} onConfigChange={handleConfigChange} />
@@ -272,22 +284,20 @@ function TodayView({
   shortcutDisplay,
   shortcut,
   config,
+  onSwitchToAi,
+  onSessionCreated,
 }: {
   shortcutDisplay: string;
   shortcut: string;
   config: AppConfig;
+  onSwitchToAi: () => void;
+  onSessionCreated: (url: string | undefined) => void;
 }) {
-  const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [logContent, setLogContent] = useState("");
   const [showHint, setShowHint] = useState(() => !localStorage.getItem("hasSeenShortcutHint"));
-
-  // Daily report generation state
-  const [genSheetOpen, setGenSheetOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [spec, setSpec] = useState<Spec | null>(null);
-  const [streamingText, setStreamingText] = useState("");
-  const [reasoningText, setReasoningText] = useState("");
-  const [generatedReport, setGeneratedReport] = useState<string | null>(null);
-  const [genError, setGenError] = useState<string | null>(null);
+  const [openCodeChecking, setOpenCodeChecking] = useState(false);
+  const [showOpenCodeDialog, setShowOpenCodeDialog] = useState(false);
+  const [openCodeError, setOpenCodeError] = useState<string | null>(null);
 
   const dismissHint = () => {
     localStorage.setItem("hasSeenShortcutHint", "1");
@@ -302,241 +312,106 @@ function TodayView({
     weekday: "long",
   });
 
-  const loadEntries = useCallback(async () => {
+  const loadContent = useCallback(async () => {
     try {
       const date = formatCurrentDate();
       const content = await readLog(date);
-      setEntries(parseLogEntries(content));
+      setLogContent(content);
     } catch (e) {
       console.error("Failed to load today's log:", e);
-      setEntries([]);
+      setLogContent("");
     }
   }, []);
 
   // Load on mount
   useEffect(() => {
-    loadEntries();
-  }, [loadEntries]);
+    loadContent();
+  }, [loadContent]);
 
   // Reload when window gains focus (quick-input may have saved data)
   useEffect(() => {
     const unlisten = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (focused) {
-        loadEntries();
+        loadContent();
       }
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [loadEntries]);
+  }, [loadContent]);
 
-  // Sort entries by time descending (newest first)
-  const sortedEntries = [...entries].sort((a, b) => b.time.localeCompare(a.time));
-
-  const aiConfigured = !!(config.ai?.api_key);
-
-  async function handleGenerateDailyReport() {
-    if (!config.ai) {
-      setGenError(t("today.noConfig"));
-      setGenSheetOpen(true);
-      return;
-    }
-
-    if (sortedEntries.length === 0) {
-      setGenError(t("today.noEntries"));
-      setGenSheetOpen(true);
-      return;
-    }
-
-    // Reset state and open sheet
-    setGenerating(true);
-    setSpec(null);
-    setGeneratedReport(null);
-    setGenError(null);
-    setStreamingText("");
-    setReasoningText("");
-    setGenSheetOpen(true);
-
+  const handleGenerateWithOpenCode = useCallback(async () => {
+    setOpenCodeChecking(true);
+    setOpenCodeError(null);
     try {
-      const date = formatCurrentDate();
-      const logContent = await readLog(date);
-
-      if (!logContent.trim()) {
-        setGenerating(false);
-        setGenError(t("today.noEntries"));
+      const installed = await checkOpenCodeInstalled();
+      if (!installed) {
+        setShowOpenCodeDialog(true);
         return;
       }
+      await startOpenCode(config.storage_path);
 
-      const dailyPrompt = `按以下格式生成日报：
-1. 今日完成工作（列出具体事项和进度）
-2. 遇到的问题及解决方案
-3. 明日计划
-4. 需要协调的事项（如没有则省略）
-
-要求：简洁明了，每项工作一句话概括，重点突出成果和进度。`;
-
-      await generateReport({
-        aiConfig: config.ai,
-        logs: logContent,
-        dateRange: date,
-        customInstruction: dailyPrompt,
-        phase: "generation",
-        onTextUpdate: (text) => setStreamingText(text),
-        onReasoningUpdate: (text) => setReasoningText(text),
-        onSpecUpdate: (s) => setSpec(s),
-        onComplete: (s, text) => {
-          setGenerating(false);
-          if (s) setSpec(s);
-          else setGeneratedReport(text);
-        },
-        onError: (err) => {
-          setGenerating(false);
-          setGenError(err.message || String(err));
-        },
-      });
-    } catch (e) {
-      setGenerating(false);
-      setGenError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  async function handleSaveDailyReport() {
-    if (!spec && !generatedReport) return;
-
-    const dateStr = new Date().toISOString().split("T")[0];
-    const filename = `report-${dateStr}`;
-
-    let reportContent = generatedReport || "";
-    if (spec?.elements) {
-      for (const el of Object.values(spec.elements)) {
-        const elem = el as { type?: string; props?: { content?: string; title?: string } };
-        if (elem.type === "ReportPreview" && elem.props?.content) {
-          reportContent = `# ${elem.props.title || "日报"}\n\n${elem.props.content}`;
-          break;
-        }
-      }
-    }
-
-    try {
-      await writeReport(filename, reportContent);
-      setGenSheetOpen(false);
-      // Reset state
-      setSpec(null);
-      setGeneratedReport(null);
-      setStreamingText("");
-      setReasoningText("");
-      setGenError(null);
-    } catch (e) {
-      console.error("Failed to save report:", e);
-    }
-  }
-
-  function resetGenState() {
-    setSpec(null);
-    setGeneratedReport(null);
-    setStreamingText("");
-    setReasoningText("");
-    setGenError(null);
-    setGenerating(false);
-  }
-
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editTime, setEditTime] = useState("");
-  const [editContent, setEditContent] = useState("");
-  const editContentRef = useRef<HTMLTextAreaElement>(null);
-  const editTimeRef = useRef<HTMLInputElement>(null);
-  // Track latest values via ref to avoid stale closure in blur handlers
-  const latestEditTime = useRef("");
-  const latestEditContent = useRef("");
-  const isSaving = useRef(false);
-  const pendingFocusIndex = useRef<number | null>(null);
-
-  const syncEditTime = (v: string) => { setEditTime(v); latestEditTime.current = v; };
-  const syncEditContent = (v: string) => { setEditContent(v); latestEditContent.current = v; };
-
-  // After entries refresh, auto-focus the pending block (after deletion)
-  useEffect(() => {
-    if (pendingFocusIndex.current !== null) {
-      const idx = pendingFocusIndex.current;
-      pendingFocusIndex.current = null;
-      if (idx >= 0 && idx < sortedEntries.length) {
-        startEdit(idx, sortedEntries[idx], "content");
-      }
-    }
-  }, [entries]);
-
-  const startEdit = (index: number, entry: LogEntry, focusField?: "time" | "content") => {
-    setEditingIndex(index);
-    syncEditTime(entry.time);
-    syncEditContent(entry.content);
-    requestAnimationFrame(() => {
-      const target = focusField === "time" ? editTimeRef.current : editContentRef.current;
-      target?.focus();
-      // Move cursor to end of textarea
-      if (focusField !== "time" && editContentRef.current) {
-        const len = editContentRef.current.value.length;
-        editContentRef.current.setSelectionRange(len, len);
-      }
-    });
-  };
-
-  const cancelEdit = () => {
-    setEditingIndex(null);
-    syncEditTime("");
-    syncEditContent("");
-  };
-
-  const saveEdit = async (domTime?: string, domContent?: string) => {
-    if (isSaving.current) return;
-    const idx = editingIndex;
-    if (idx === null) return;
-
-    const originalEntry = sortedEntries[idx];
-    // Prefer DOM values from blur; fall back to refs for keyboard shortcuts
-    const newTime = (domTime ?? latestEditTime.current).trim();
-    const newContent = (domContent ?? latestEditContent.current).trim();
-
-    isSaving.current = true;
-    cancelEdit();
-
-    try {
+      // Build prompt with today's log content
       const date = formatCurrentDate();
-      const currentLog = await readLog(date);
-      const allEntries = parseLogEntries(currentLog);
+      const todayLog = await readLog(date);
+      const promptText = todayLog
+        ? `请根据以下今日工作日志内容，帮我生成一份日报：\n\n${todayLog}`
+        : `今天是 ${date}，目前还没有记录任何工作日志。请帮我开始记录。`;
 
-      if (!newContent) {
-        // Empty content = delete entry
-        const filtered = allEntries.filter(
-          (e) => !(e.time === originalEntry.time && e.content === originalEntry.content)
-        );
-        let newLog = `---\ndate: ${date}\n---`;
-        for (const entry of filtered) {
-          newLog += `\n\n## ${entry.time}\n\n${entry.content}`;
-        }
-        await writeLog(date, newLog);
-        // Focus previous block after refresh (index i-1 in sorted order)
-        pendingFocusIndex.current = idx - 1;
-      } else if (newTime !== originalEntry.time || newContent !== originalEntry.content) {
-        // Update entry
-        const entryIdx = allEntries.findIndex(
-          (e) => e.time === originalEntry.time && e.content === originalEntry.content
-        );
-        if (entryIdx >= 0) {
-          allEntries[entryIdx] = { time: newTime, content: newContent };
-          let newLog = `---\ndate: ${date}\n---`;
-          for (const entry of allEntries) {
-            newLog += `\n\n## ${entry.time}\n\n${entry.content}`;
-          }
-          await writeLog(date, newLog);
-        }
+      try {
+        // Create session via OpenCode API (tauriFetch bypasses CORS)
+        console.log("[日报] Creating session...");
+        const sessionRes = await tauriFetch(`${OPENCODE_BASE}/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: `日报 ${date}` }),
+        });
+        const session = await sessionRes.json();
+        const sessionId = session.id;
+        console.log("[日报] Session created:", sessionId);
+
+        // Send the prompt and wait for the AI to finish responding.
+        // The message API blocks until the full response is ready.
+        // tauriFetch has no read timeout so it will wait indefinitely,
+        // which is fine — opencode's AI typically responds in 5-30s.
+        console.log("[日报] Sending message...");
+        const msgRes = await tauriFetch(`${OPENCODE_BASE}/session/${sessionId}/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parts: [{ type: "text", text: promptText }],
+          }),
+        });
+        console.log("[日报] Message response status:", msgRes.status);
+
+        // Only navigate after the message & response are fully persisted,
+        // so the session page always renders the complete conversation.
+        const encodedDir = base64EncodePath(config.storage_path);
+        const sessionUrl = `${OPENCODE_BASE}/${encodedDir}/session/${sessionId}`;
+        console.log("[日报] Navigating to:", sessionUrl);
+        onSessionCreated(sessionUrl);
+      } catch (apiErr) {
+        // API call failed — still switch to AI tab but show error
+        console.error("[日报] OpenCode API error:", apiErr);
+        setOpenCodeError(String(apiErr));
+        // Fall back to project home (no specific session)
+        onSessionCreated(undefined);
       }
-      loadEntries();
+
+      onSwitchToAi();
     } catch (e) {
-      console.error("Failed to save edit:", e);
+      console.error("Failed to start OpenCode:", e);
+      setOpenCodeError(String(e));
     } finally {
-      isSaving.current = false;
+      setOpenCodeChecking(false);
     }
-  };
+  }, [config.storage_path, onSwitchToAi, onSessionCreated]);
+
+  const handleChange = useCallback(async (markdown: string) => {
+    setLogContent(markdown);
+    const date = formatCurrentDate();
+    await writeLog(date, markdown);
+  }, []);
 
   return (
     <div className="flex flex-col h-full p-4">
@@ -545,16 +420,21 @@ function TodayView({
           <h2 className="text-2xl font-bold">{t("today.title")}</h2>
           <p className="text-sm text-muted-foreground mt-1">{dateDisplay}</p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={handleGenerateDailyReport}
-          title={t("today.generateReport")}
-          disabled={!aiConfigured}
-        >
-          <Sparkles className="w-4 h-4" />
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateWithOpenCode}
+            disabled={openCodeChecking}
+          >
+            {openCodeChecking ? t("today.generating") : t("today.generateReport")}
+          </Button>
+          {openCodeError && (
+            <p className="text-xs text-red-500 max-w-xs truncate" title={openCodeError}>
+              {openCodeError}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* First-launch shortcut hint banner */}
@@ -581,169 +461,45 @@ function TodayView({
         </div>
       )}
 
-      {sortedEntries.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <FileText className="w-12 h-12 opacity-30" />
-          <p>{t("today.empty")}</p>
-          <p className="text-sm">{t("today.emptyHint", { shortcut: shortcutDisplay })}</p>
-        </div>
-      ) : (
-        <ScrollArea className="flex-1">
-          <div className="space-y-0 divide-y divide-border">
-            {sortedEntries.map((entry, i) => (
-              <div
-                key={`${entry.time}-${i}`}
-                className="group py-3 px-1"
-              >
-                {editingIndex === i ? (
-                  /* --- Editing state --- */
-                  <div>
-                    <input
-                      ref={editTimeRef}
-                      value={editTime}
-                      onChange={(e) => syncEditTime(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                        if (e.key === "Enter") { e.preventDefault(); editContentRef.current?.focus(); }
-                        // Time empty + Backspace: if content also empty → delete entry; else do nothing
-                        if (e.key === "Backspace" && !editTime) {
-                          e.preventDefault();
-                          if (!editContent) {
-                            saveEdit("", "");
-                          }
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // Don't save if focus is moving to the content textarea in same entry
-                        if (e.relatedTarget === editContentRef.current) return;
-                        saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
-                      }}
-                      className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 caret-foreground p-0 h-auto"
-                      placeholder="HH:mm"
-                    />
-                    <textarea
-                      ref={editContentRef}
-                      value={editContent}
-                      onChange={(e) => syncEditContent(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
-                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveEdit(editTimeRef.current?.value, editContentRef.current?.value); }
-                        // Content empty + Backspace: jump to time field
-                        if (e.key === "Backspace" && !editContent) {
-                          e.preventDefault();
-                          editTimeRef.current?.focus();
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // Don't save if focus is moving to the time input in same entry
-                        if (e.relatedTarget === editTimeRef.current) return;
-                        saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
-                      }}
-                      className="w-full bg-transparent text-sm whitespace-pre-wrap leading-relaxed resize-none outline-none border-0 min-h-[1.5em] p-0 caret-foreground"
-                      rows={editContent.split("\n").length}
-                    />
-                  </div>
-                ) : (
-                  /* --- Display state --- */
-                  <div
-                    className="cursor-text"
-                    onClick={(e) => {
-                      // If click is on the time area, focus time; otherwise content
-                      const target = e.target as HTMLElement;
-                      const focusField = target.dataset.field === "time" ? "time" : "content";
-                      startEdit(i, entry, focusField);
-                    }}
-                  >
-                    <div data-field="time" className="text-xs font-mono text-muted-foreground mb-0.5">{entry.time}</div>
-                    <InlineEntryContent content={entry.content} storagePath={config.storage_path} />
-                  </div>
-                )}
-              </div>
-            ))}
+      {showOpenCodeDialog && (
+        <div className="mb-4 rounded-lg border border-border bg-muted/50 p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="font-medium mb-1">{t("opencode.install.title")}</h3>
+              <p className="text-sm text-muted-foreground mb-2">
+                {t("opencode.install.description")}
+              </p>
+              <code className="text-xs bg-background px-2 py-1 rounded border border-border">
+                npm i -g opencode
+              </code>
+              <p className="text-xs text-muted-foreground mt-2">
+                <a
+                  href="https://opencode.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  opencode.ai →
+                </a>
+              </p>
+            </div>
+            <button
+              onClick={() => setShowOpenCodeDialog(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors ml-3"
+              aria-label={t("common.close")}
+            >
+              ×
+            </button>
           </div>
-        </ScrollArea>
+        </div>
       )}
 
-      {/* Daily report generation Sheet */}
-      <Sheet open={genSheetOpen} onOpenChange={(open) => { if (!open) resetGenState(); setGenSheetOpen(open); }}>
-        <SheetContent side="right" className="flex flex-col overflow-hidden w-[480px] max-w-[90vw]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>{t("today.generateReport")}</SheetTitle>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-auto">
-            {/* Error state */}
-            {genError && (
-              <div className="text-sm text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md p-3">
-                <p className="whitespace-pre-wrap break-words text-xs">{genError}</p>
-              </div>
-            )}
-
-            {/* Generating state */}
-            {generating && (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {reasoningText ? t("reports.generate.buildingReport") : t("reports.generate.thinking")}
-                </p>
-                {reasoningText && (
-                  <details className="w-full mt-2">
-                    <summary className="text-xs text-muted-foreground cursor-pointer">
-                      {t("reports.generate.viewThinking")}
-                    </summary>
-                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-words mt-2 max-h-40 overflow-auto">
-                      {reasoningText}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            )}
-
-            {/* Spec result (json-render) */}
-            {spec?.root && spec.elements?.[spec.root] && (
-              <div className="py-2">
-                <StateProvider initialState={{}}>
-                  <VisibilityProvider>
-                    <ActionProvider
-                      handlers={{
-                        save_report: async () => { await handleSaveDailyReport(); },
-                      }}
-                    >
-                      <Renderer spec={spec} registry={registry} loading={generating} />
-                    </ActionProvider>
-                  </VisibilityProvider>
-                </StateProvider>
-              </div>
-            )}
-
-            {/* Streaming text (shown during generation before spec appears, or when AI returns plain text) */}
-            {streamingText && !spec?.root && !generatedReport && (
-              <div className="py-2">
-                <pre className="text-sm whitespace-pre-wrap leading-relaxed">{streamingText}</pre>
-              </div>
-            )}
-
-            {/* Plain text result */}
-            {!spec?.root && generatedReport && (
-              <div className="py-2">
-                <pre className="text-sm whitespace-pre-wrap leading-relaxed">{generatedReport}</pre>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom actions — only show for plain text reports (json-render specs have their own ActionButtons) */}
-          {!spec?.root && generatedReport && !generating && !genError && (
-            <div className="flex gap-2 pt-4 border-t">
-              <Button onClick={handleSaveDailyReport} className="flex-1">
-                {t("reports.generate.saveReport")}
-              </Button>
-              <Button variant="outline" onClick={() => { resetGenState(); handleGenerateDailyReport(); }}>
-                {t("reports.generate.regenerate")}
-              </Button>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+      <RichTextEditor
+        content={logContent}
+        storagePath={config.storage_path}
+        onChange={handleChange}
+        className="flex-1 overflow-auto"
+      />
     </div>
   );
 }
@@ -761,26 +517,11 @@ function SettingsView({
   const [theme, setTheme] = useState<Theme>(config.theme || "system");
   const [showHintBar, setShowHintBar] = useState(config.show_hint_bar ?? true);
   const [locale, setLocaleState] = useState(config.locale || "system");
-  const savedProvider = config.ai?.provider;
-  const validProvider: AiProviderKey =
-    savedProvider && savedProvider in AI_PROVIDERS
-      ? (savedProvider as AiProviderKey)
-      : "opencode-go";
-  const [aiProvider, setAiProvider] = useState<AiProviderKey>(validProvider);
-  const [aiBaseUrl, setAiBaseUrl] = useState(
-    config.ai?.api_base_url || AI_PROVIDERS[validProvider].baseUrl
-  );
-  const [aiApiKey, setAiApiKey] = useState(config.ai?.api_key || "");
-  const [aiModel, setAiModel] = useState(
-    config.ai?.model || "glm-5.1"
-  );
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const currentAiConfig: AiConfig = { provider: aiProvider, api_base_url: aiBaseUrl, api_key: aiApiKey, model: aiModel };
-
   // Auto-save whenever config changes
-  function persistConfig(path: string, sc: string, th: Theme, screenshotSc?: string, shb?: boolean, lc?: string, aiCfg?: AiConfig) {
+  function persistConfig(path: string, sc: string, th: Theme, screenshotSc?: string, shb?: boolean, lc?: string) {
     const newConfig: AppConfig = {
       storage_path: path,
       shortcut: sc,
@@ -788,9 +529,6 @@ function SettingsView({
       theme: th,
       show_hint_bar: shb,
       locale: lc,
-      ai: aiCfg,
-      report_presets: config.report_presets,
-      selected_report_preset: config.selected_report_preset,
     };
     onConfigChange(newConfig);
     if (savedTimeout.current) clearTimeout(savedTimeout.current);
@@ -816,7 +554,7 @@ function SettingsView({
       if (selected) {
         const path = typeof selected === "string" ? selected : selected;
         setStoragePath(path as string);
-        persistConfig(path as string, shortcut, theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
+        persistConfig(path as string, shortcut, theme, screenshotShortcut, showHintBar, locale);
       }
     } catch (e) {
       console.error("Failed to choose folder:", e);
@@ -845,7 +583,7 @@ function SettingsView({
               value={storagePath}
               onChange={(e) => {
                 setStoragePath(e.target.value);
-                persistConfig(e.target.value, shortcut, theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
+                persistConfig(e.target.value, shortcut, theme, screenshotShortcut, showHintBar, locale);
               }}
               className="flex-1"
             />
@@ -881,7 +619,7 @@ function SettingsView({
               value={shortcut}
               onChange={(s) => {
                 setShortcut(s);
-                persistConfig(storagePath, s, theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
+                persistConfig(storagePath, s, theme, screenshotShortcut, showHintBar, locale);
               }}
             />
             <p className="text-xs text-muted-foreground">
@@ -894,7 +632,7 @@ function SettingsView({
               value={screenshotShortcut ?? DEFAULT_SCREENSHOT_SHORTCUT}
               onChange={(s) => {
                 setScreenshotShortcut(s);
-                persistConfig(storagePath, shortcut, theme, s, showHintBar, locale, currentAiConfig);
+                persistConfig(storagePath, shortcut, theme, s, showHintBar, locale);
               }}
             />
             <p className="text-xs text-muted-foreground">
@@ -909,7 +647,7 @@ function SettingsView({
               onClick={() => {
                 const newVal = !showHintBar;
                 setShowHintBar(newVal);
-                persistConfig(storagePath, shortcut, theme, screenshotShortcut, newVal, locale, currentAiConfig);
+                persistConfig(storagePath, shortcut, theme, screenshotShortcut, newVal, locale);
               }}
             >
               {showHintBar ? t("common.yes") : t("common.no")}
@@ -932,7 +670,7 @@ function SettingsView({
               value={theme}
               onValueChange={(val) => {
                 setTheme(val as Theme);
-                persistConfig(storagePath, shortcut, val as Theme, screenshotShortcut, showHintBar, locale, currentAiConfig);
+                persistConfig(storagePath, shortcut, val as Theme, screenshotShortcut, showHintBar, locale);
               }}
             >
               <SelectTrigger className="w-[160px]">
@@ -955,7 +693,7 @@ function SettingsView({
               onValueChange={(val) => {
                 setLocaleState(val);
                 setLocale(val === "system" ? "system" : val);
-                persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, val, currentAiConfig);
+                persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, val);
               }}
             >
               <SelectTrigger className="w-[160px]">
@@ -973,123 +711,100 @@ function SettingsView({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            {t("settings.ai.title")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t("settings.ai.provider")}</label>
-            <Select
-              value={aiProvider}
-              onValueChange={(val) => {
-                const key = val as AiProviderKey;
-                const preset = AI_PROVIDERS[key];
-                setAiProvider(key);
-                if (preset.baseUrl) setAiBaseUrl(preset.baseUrl);
-                const defaultModel = preset.models.length > 0 ? preset.models[0] : "";
-                setAiModel(defaultModel);
-                persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
-                  provider: key,
-                  api_base_url: preset.baseUrl || aiBaseUrl,
-                  api_key: aiApiKey,
-                  model: defaultModel || aiModel,
-                });
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="opencode-go">OpenCode Go</SelectItem>
-                <SelectItem value="zhipu-coding-plan">智谱 Coding Plan</SelectItem>
-                <SelectItem value="custom">{t("settings.ai.customProvider")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {AI_PROVIDERS[aiProvider].showBaseUrl && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("settings.ai.baseUrl")}</label>
-              <Input
-                value={aiBaseUrl}
-                onChange={(e) => {
-                  setAiBaseUrl(e.target.value);
-                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
-                    provider: aiProvider,
-                    api_base_url: e.target.value,
-                    api_key: aiApiKey,
-                    model: aiModel,
-                  });
-                }}
-                placeholder="https://api.example.com/v1"
-              />
-            </div>
-          )}
-          {AI_PROVIDERS[aiProvider].needsApiKey && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("settings.ai.apiKey")}</label>
-              <Input
-                type="password"
-                value={aiApiKey}
-                onChange={(e) => {
-                  setAiApiKey(e.target.value);
-                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
-                    provider: aiProvider,
-                    api_base_url: aiBaseUrl,
-                    api_key: e.target.value,
-                    model: aiModel,
-                  });
-                }}
-                placeholder={t("settings.ai.apiKeyPlaceholder")}
-              />
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t("settings.ai.model")}</label>
-            {AI_PROVIDERS[aiProvider].models.length > 0 ? (
-              <Select
-                value={aiModel}
-                onValueChange={(val) => {
-                  setAiModel(val);
-                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
-                    provider: aiProvider,
-                    api_base_url: aiBaseUrl,
-                    api_key: aiApiKey,
-                    model: val,
-                  });
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AI_PROVIDERS[aiProvider].models.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    </div>
+  );
+}
+
+function OpenCodeView({ config, sessionUrl }: { config: AppConfig; sessionUrl?: string }) {
+  const [serverReady, setServerReady] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
+
+  // Build the base project URL with base64-encoded directory path
+  const projectUrl = useMemo(() => {
+    const encoded = base64EncodePath(config.storage_path);
+    return `${OPENCODE_BASE}/${encoded}`;
+  }, [config.storage_path]);
+
+  // Use session URL if provided (from "生成日报"), otherwise project home
+  const iframeSrc = sessionUrl || projectUrl;
+
+  useEffect(() => {
+    isOpencodeRunning().then((running) => {
+      if (running) setServerReady(true);
+    });
+  }, []);
+
+  const handleStart = useCallback(async () => {
+    setStarting(true);
+    try {
+      const installed = await checkOpenCodeInstalled();
+      if (!installed) {
+        setShowInstallDialog(true);
+        return;
+      }
+      await startOpenCode(config.storage_path);
+      // Brief delay to ensure server is fully ready
+      await new Promise((r) => setTimeout(r, 500));
+      setServerReady(true);
+    } catch (e) {
+      console.error("Failed to start OpenCode:", e);
+    } finally {
+      setStarting(false);
+    }
+  }, [config.storage_path]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {!serverReady && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            {showInstallDialog ? (
+              <div className="rounded-lg border border-border bg-muted/50 p-6 max-w-md">
+                <h3 className="font-medium mb-2">{t("opencode.install.title")}</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {t("opencode.install.description")}
+                </p>
+                <code className="text-xs bg-background px-2 py-1 rounded border border-border">
+                  npm i -g opencode
+                </code>
+                <p className="text-xs text-muted-foreground mt-3">
+                  <a
+                    href="https://opencode.ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    opencode.ai →
+                  </a>
+                </p>
+                <div className="mt-4">
+                  <Button variant="outline" size="sm" onClick={() => setShowInstallDialog(false)}>
+                    {t("common.close")}
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <Input
-                value={aiModel}
-                onChange={(e) => {
-                  setAiModel(e.target.value);
-                  persistConfig(storagePath, shortcut, theme, screenshotShortcut, showHintBar, locale, {
-                    provider: aiProvider,
-                    api_base_url: aiBaseUrl,
-                    api_key: aiApiKey,
-                    model: e.target.value,
-                  });
-                }}
-                placeholder="model-name"
-              />
+              <>
+                <p className="text-muted-foreground">{t("opencode.start.hint")}</p>
+                <Button onClick={handleStart} disabled={starting}>
+                  {starting ? "..." : t("opencode.start.button")}
+                </Button>
+              </>
             )}
           </div>
-        </CardContent>
-      </Card>
-
+        </div>
+      )}
+      {serverReady && (
+        <iframe
+          src={iframeSrc}
+          className="flex-1 w-full border-0"
+          title="OpenCode"
+          style={{
+            colorScheme: config.theme === "dark" ? "dark" : config.theme === "light" ? "light" : undefined,
+          }}
+        />
+      )}
     </div>
   );
 }

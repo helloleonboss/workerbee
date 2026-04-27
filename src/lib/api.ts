@@ -2,116 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 
 export const DEFAULT_SHORTCUT = "CommandOrControl+Shift+Space";
 export const DEFAULT_SCREENSHOT_SHORTCUT = "CommandOrControl+Shift+S";
-export const DEFAULT_AI_BASE_URL = "https://opencode.ai/zen/go/v1";
-export const DEFAULT_AI_MODEL = "glm-5.1";
 
 export type Theme = "light" | "dark" | "system";
-
-export interface AiConfig {
-  provider: string;
-  api_base_url: string;
-  api_key: string;
-  model: string;
-}
-
-export const AI_PROVIDERS = {
-  "opencode-go": {
-    name: "OpenCode Go",
-    baseUrl: "https://opencode.ai/zen/go/v1",
-    models: ["glm-5.1", "glm-5", "kimi-k2.5", "mimo-v2-pro", "mimo-v2-omni", "qwen3.6-plus", "qwen3.5-plus"],
-    needsApiKey: true,
-    showBaseUrl: false,
-  },
-  "zhipu-coding-plan": {
-    name: "智谱 Coding Plan",
-    baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
-    models: ["glm-5.1", "glm-5-turbo", "glm-4.7", "glm-4.5-air"],
-    needsApiKey: true,
-    showBaseUrl: false,
-  },
-  custom: {
-    name: "自定义 API",
-    baseUrl: "",
-    models: [] as string[],
-    needsApiKey: true,
-    showBaseUrl: true,
-  },
-} as const;
-
-export type AiProviderKey = keyof typeof AI_PROVIDERS;
-
-export interface ReportPreset {
-  id: string;
-  name: string;
-  prompt: string;
-  dateRange?: "today" | "week" | "month";
-}
-
-export const DEFAULT_REPORT_PRESETS: ReportPreset[] = [
-  {
-    id: "daily",
-    name: "日报",
-    dateRange: "today",
-    prompt: `按以下格式生成日报：
-1. 今日完成工作（列出具体事项和进度）
-2. 遇到的问题及解决方案
-3. 明日计划
-4. 需要协调的事项（如没有则省略）
-
-要求：简洁明了，每项工作一句话概括，重点突出成果和进度。`,
-  },
-  {
-    id: "weekly",
-    name: "周报",
-    dateRange: "week",
-    prompt: `按以下格式生成周报：
-1. 本周工作总结（按项目或任务分类，列出关键成果和进度百分比）
-2. 遇到的问题及解决方案
-3. 下周工作计划
-4. 风险与需协调事项（如没有则省略）
-
-要求：突出重点成果，量化进度，问题部分写明解决方案或所需支持。`,
-  },
-  {
-    id: "monthly",
-    name: "月报",
-    dateRange: "month",
-    prompt: `按以下格式生成月报：
-1. 本月工作概述（总体进展和关键里程碑）
-2. 各项目/任务详细进展（按项目分组，含完成情况、数据指标）
-3. 问题与挑战
-4. 下月工作计划与目标
-5. 需要的支持与资源
-
-要求：注重数据支撑和目标达成情况，体现工作价值。`,
-  },
-  {
-    id: "quarterly",
-    name: "季报",
-    dateRange: "month",
-    prompt: `按以下格式生成季度报告：
-1. 季度工作概述（总体目标与实际达成对比）
-2. 重点项目进展（含关键指标、里程碑完成情况）
-3. 团队协作与个人成长
-4. 存在的问题与改进措施
-5. 下季度工作规划与目标
-
-要求：战略视角，突出目标完成度和业务价值，有数据支撑。`,
-  },
-  {
-    id: "annual",
-    name: "年报",
-    dateRange: "month",
-    prompt: `按以下格式生成年报：
-1. 年度工作总结（年度目标回顾与整体表现）
-2. 核心成果与亮点（按项目/领域分类）
-3. 能力成长与经验总结
-4. 不足与反思
-5. 新年度工作规划
-
-要求：全面总结，体现年度贡献和成长轨迹，为绩效评估提供依据。`,
-  },
-];
 
 export interface AppConfig {
   storage_path: string;
@@ -120,9 +12,6 @@ export interface AppConfig {
   theme?: Theme;
   show_hint_bar?: boolean;
   locale?: string;
-  ai?: AiConfig;
-  report_presets?: ReportPreset[];
-  selected_report_preset?: string;
 }
 
 export async function getConfig(): Promise<AppConfig | null> {
@@ -241,4 +130,22 @@ export async function listScreenshots(): Promise<ScreenshotInfo[]> {
 
 export async function deleteScreenshot(filename: string): Promise<void> {
   return invoke("delete_screenshot", { filename });
+}
+
+export async function savePastedImage(base64Data: string, format: string): Promise<string> {
+  return invoke("save_pasted_image", { base64Data, format });
+}
+
+// ─── OpenCode API ───
+
+export async function checkOpenCodeInstalled(): Promise<boolean> {
+  return invoke<boolean>("check_opencode_installed");
+}
+
+export async function startOpenCode(storagePath: string): Promise<void> {
+  return invoke("start_opencode", { storagePath });
+}
+
+export async function isOpencodeRunning(): Promise<boolean> {
+  return invoke<boolean>("is_opencode_running");
 }

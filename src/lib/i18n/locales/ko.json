@@ -187,5 +187,15 @@
     "deleteSuccess": "스크린샷이 삭제되었습니다",
     "preview": "미리보기",
     "insertToLog": "로그에 삽입"
+  },
+  "opencode": {
+    "install": {
+      "title": "OpenCode 필요",
+      "description": "일일 보고서 생성에 OpenCode가 필요합니다. 먼저 설치해 주세요."
+    },
+    "start": {
+      "button": "OpenCode 시작",
+      "hint": "아래 버튼을 클릭하여 OpenCode AI 어시스턴트 시작"
+    }
   }
 }

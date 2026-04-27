@@ -34,3 +34,18 @@ pub struct ScreenshotOverlayData {
 }
 
 pub struct ScreenshotOverlayDataState(pub Mutex<Option<ScreenshotOverlayData>>);
+
+// OpenCode server state
+pub struct OpenCodeServer {
+    pub port: u16,
+    pub child: std::process::Child,
+}
+
+impl Drop for OpenCodeServer {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+pub struct OpenCodeServerState(pub Mutex<Option<OpenCodeServer>>);

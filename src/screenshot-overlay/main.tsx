@@ -23,7 +23,6 @@ function ScreenshotOverlayApp() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const startPosRef = useRef({ x: 0, y: 0 });
   const selectionRef = useRef<SelectionCoords>({ x: 0, y: 0, width: 0, height: 0 });
   const [, forceUpdate] = useState({});
@@ -36,7 +35,6 @@ function ScreenshotOverlayApp() {
       setIsSelecting(false);
       selectionRef.current = { x: 0, y: 0, width: 0, height: 0 };
       setSaveError(null);
-      setSaveSuccess(false);
     });
 
     const unlistenDataReady = listen("screenshot-data-ready", () => {
@@ -82,10 +80,7 @@ function ScreenshotOverlayApp() {
           height: sel.height,
         });
         await invoke("save_screenshot_log_entry", { imagePath: relativePath });
-        setSaveSuccess(true);
-        setTimeout(async () => {
-          await invoke("close_screenshot_overlay");
-        }, 1500);
+        await invoke("close_screenshot_overlay");
       } catch (error) {
         console.error("Failed to save screenshot:", error);
         const message = error instanceof Error ? error.message : String(error);
@@ -245,13 +240,6 @@ function ScreenshotOverlayApp() {
             {sel.width} × {sel.height}
           </div>
         </>
-      )}
-
-      {/* Save success toast */}
-      {saveSuccess && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-lg animate-pulse">
-          ✓ 已保存
-        </div>
       )}
 
       {/* Save error toast */}

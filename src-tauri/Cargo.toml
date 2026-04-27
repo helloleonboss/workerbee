@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
+default-run = "workerbee"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,6 +14,10 @@ edition = "2021"
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "workerbee_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "workerbee-cli"
+path = "src/bin/workerbee-cli.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -31,4 +36,5 @@ tauri-plugin-agent-control = "0.1"
 xcap = "0.4"
 image = { version = "0.25", features = ["webp", "png", "jpeg"] }
 base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
 

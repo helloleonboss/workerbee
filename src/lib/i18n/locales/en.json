@@ -187,5 +187,15 @@
     "deleteSuccess": "Screenshot deleted",
     "preview": "Preview",
     "insertToLog": "Insert to log"
+  },
+  "opencode": {
+    "install": {
+      "title": "OpenCode Required",
+      "description": "Daily report generation requires OpenCode. Please install it first."
+    },
+    "start": {
+      "button": "Start OpenCode",
+      "hint": "Click below to start the OpenCode AI assistant"
+    }
   }
 }

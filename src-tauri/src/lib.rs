@@ -1,7 +1,7 @@
-mod cli;
-mod commands;
-mod config;
-mod state;
+pub mod cli;
+pub mod commands;
+pub mod config;
+pub mod state;
 
 use std::sync::Mutex;
 use tauri::tray::TrayIconEvent;
@@ -9,7 +9,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use config::{AppConfig, ensure_dirs, ensure_default_templates, default_storage_path};
-use state::{ShortcutState, ScreenshotShortcutState, CaptureState, ScreenshotOverlayDataState};
+use state::{ShortcutState, ScreenshotShortcutState, CaptureState, ScreenshotOverlayDataState, OpenCodeServerState};
 use commands::screenshot::{cleanup_temp_bmp, precreate_screenshot_overlay, show_screenshot_overlay};
 
 fn toggle_quick_input_window(app: &tauri::AppHandle) {
@@ -170,6 +170,7 @@ pub fn run() {
         .manage(ScreenshotShortcutState(Mutex::new(config::default_screenshot_shortcut())))
         .manage(CaptureState(Mutex::new(None)))
         .manage(ScreenshotOverlayDataState(Mutex::new(None)))
+        .manage(OpenCodeServerState(Mutex::new(None)))
         .setup(move |app| {
             // Clean up any leftover temp BMP files from a previous crash
             cleanup_temp_bmp();
@@ -325,6 +326,10 @@ pub fn run() {
             commands::screenshot::get_screenshot_overlay_data,
             commands::screenshot::list_screenshots,
             commands::screenshot::delete_screenshot,
+            commands::screenshot::save_pasted_image,
+            commands::opencode::check_opencode_installed,
+            commands::opencode::start_opencode,
+            commands::opencode::is_opencode_running,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

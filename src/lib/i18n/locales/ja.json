@@ -187,5 +187,15 @@
     "deleteSuccess": "スクリーンショットを削除しました",
     "preview": "プレビュー",
     "insertToLog": "ログに挿入"
+  },
+  "opencode": {
+    "install": {
+      "title": "OpenCodeが必要です",
+      "description": "日報生成にはOpenCodeが必要です。先にインストールしてください。"
+    },
+    "start": {
+      "button": "OpenCode起動",
+      "hint": "下のボタンをクリックしてOpenCode AIアシスタントを起動"
+    }
   }
 }
