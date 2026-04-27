@@ -1,0 +1,1 @@
+AI multimodal integration implemented - images are parsed from logs and sent in OpenAI vision format

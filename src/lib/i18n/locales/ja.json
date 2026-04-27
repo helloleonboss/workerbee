@@ -172,8 +172,20 @@
     "editSaveDesc": "Ctrl+Enterで保存 · ESCでキャンセル"
   },
   "screenshot": {
-    "cancelled": "スクリーンショットキャンセル",
+    "overlayHint": "ドラッグしてスクリーンショット範囲を選択 · ESCでキャンセル",
     "saving": "スクリーンショット保存中",
-    "overlayHint": "ドラッグしてスクリーンショット範囲を選択 · ESCでキャンセル"
+    "cancelled": "スクリーンショットキャンセル",
+    "loading": "読み込み中...",
+    "saved": "✓ 保存済み",
+    "saveError": "スクリーンショットの保存に失敗しました",
+    "descriptionPlaceholder": "説明を追加（任意）",
+    "saveWithDesc": "説明付きで保存",
+    "saveDirect": "直接保存",
+    "manageTitle": "スクリーンショット管理",
+    "noScreenshots": "スクリーンショットはまだありません",
+    "deleteConfirm": "このスクリーンショットを削除しますか？",
+    "deleteSuccess": "スクリーンショットを削除しました",
+    "preview": "プレビュー",
+    "insertToLog": "ログに挿入"
   }
 }

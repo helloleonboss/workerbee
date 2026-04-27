@@ -174,6 +174,18 @@
   "screenshot": {
     "overlayHint": "드래그하여 스크린샷 영역 선택 · ESC로 취소",
     "saving": "스크린샷 저장 중",
-    "cancelled": "스크린샷 취소됨"
+    "cancelled": "스크린샷 취소됨",
+    "loading": "로딩 중...",
+    "saved": "✓ 저장됨",
+    "saveError": "스크린샷 저장 실패",
+    "descriptionPlaceholder": "설명 추가 (선택사항)",
+    "saveWithDesc": "설명과 함께 저장",
+    "saveDirect": "바로 저장",
+    "manageTitle": "스크린샷 관리",
+    "noScreenshots": "아직 스크린샷이 없습니다",
+    "deleteConfirm": "이 스크린샷을 삭제하시겠습니까?",
+    "deleteSuccess": "스크린샷이 삭제되었습니다",
+    "preview": "미리보기",
+    "insertToLog": "로그에 삽입"
   }
 }

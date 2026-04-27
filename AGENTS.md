@@ -1,7 +1,7 @@
 # WorkerBee — AGENTS.md
 
 Work-log scratch pad desktop app. **Tauri v2 (Rust)** + **React 19** + **TypeScript** + **Tailwind CSS v4** + **shadcn/ui**.
-Global hotkey opens a borderless floating window for quick entry. Markdown file storage. Report generation via external agent command.
+Global hotkey opens a borderless floating window for quick entry. Markdown file storage. AI-powered report generation via OpenAI-compatible API with streaming json-render UI.
 
 ## Commands
 
@@ -43,14 +43,13 @@ npm run tauri:build        # build:cli + tauri build (full release pipeline)
 |------|-----------|-------|
 | Today | inline in `App.tsx` | Click-to-edit, blur-to-save, clear+blur = delete |
 | Logs | `LogViewer.tsx` | Date sidebar + inline editing (similar pattern to Today) |
-| Reports | `ReportsView.tsx` | ~800 lines. Select source logs → pick template → generate via agent CLI |
-| Settings | inline in `App.tsx` | Theme/shortcut/locale/agent-command config |
+| Reports | `ReportsView.tsx` | List/view/edit generated reports with Markdown editor |
+| Settings | inline in `App.tsx` | Theme/shortcut/locale config |
 
 ### Key components
 
-- **`MarkdownEditor`** — CodeMirror 6 wrapper (`@uiw/react-codemirror`), used in Reports and Templates
+- **`MarkdownEditor`** — CodeMirror 6 wrapper (`@uiw/react-codemirror`), used in Reports
 - **`MarkdownPreview`** — `react-markdown` + `remark-gfm` renderer
-- **`TemplatesView`** — CRUD for `templates/*.md` prompt template files
 - **`QuickLogDialog`** — Dialog-based quick entry (alternative to the floating window)
 - **`ShortcutRecorder`** — Converts browser KeyboardEvent → Tauri shortcut string (e.g. `CommandOrControl+Shift+Space`)
 
@@ -66,13 +65,38 @@ npm run tauri:build        # build:cli + tauri build (full release pipeline)
 | `read_log(date)` / `write_log(date, content)` | Full file read/write for editing |
 | `list_logs` / `list_reports` | List filenames (sorted desc, no `.md` suffix) |
 | `read_report` / `write_report` | Reports CRUD (`reports/` dir) |
-| `list_templates` / `read_template` / `write_template` / `delete_template` | Templates CRUD (`templates/` dir) |
-| `generate_report(source_files, template_name)` | Assembles prompt, pipes to `agent_command` in new terminal |
-| `execute_prompt(prompt)` | Same as above but takes raw prompt string |
 | `choose_folder` | Native folder picker dialog |
 | `show_quick_input_cmd` / `hide_quick_input` | Show/hide floating input window |
 
 **Adding a new command**: add `#[tauri::command]` fn in `lib.rs`, register in `invoke_handler(tauri::generate_handler![…])`, then add typed wrapper in `src/lib/api.ts`.
+
+### AI Report Generation
+
+AI-powered report generation uses `tauriFetch` (bypasses CORS) + SSE streaming + `@json-render` for real-time rendered UI.
+
+**Key files:**
+
+| File | Purpose |
+|------|---------|
+| `src/lib/ai/generate.ts` | Core streaming: `tauriFetch` → SSE parse → `createSpecStreamCompiler` → spec patches |
+| `src/lib/ai/catalog.ts` | json-render catalog: 4 components (ClarifyCard, ReportPreview, ReportMeta, ActionButton) + 3 actions |
+| `src/lib/ai/registry.tsx` | React component implementations for the catalog |
+| `src/components/ReportsView.tsx` | Reports tab: generation toolbar + `Renderer` with `StateProvider`/`ActionProvider`/`VisibilityProvider` |
+| `src/lib/api.ts` | `AI_PROVIDERS` (opencode-go / zhipu-coding-plan / custom) + `REPORT_FORMAT_PRESETS` (daily/weekly/monthly/quarterly/annual) |
+
+**Streaming flow:**
+1. User clicks Generate → `handleGenerate()` collects logs for date range
+2. `generateReport()` sends `POST /chat/completions` with `stream: true` via `tauriFetch`
+3. SSE chunks parsed → `parseSseDelta()` extracts `content` + `reasoning_content` (GLM models)
+4. Content fed to `createSpecStreamCompiler<Spec>()` → compiled spec via JSON Patch (RFC 6902)
+5. Valid specs (root element exists) trigger `setSpec()` → `<Renderer>` renders in real-time
+6. Supports thinking phase display (`reasoning_content`) before formal output
+
+**Providers:** Configured in Settings tab. `AI_PROVIDERS` in `api.ts` defines base URLs and available models. Custom provider allows arbitrary OpenAI-compatible endpoints.
+
+**Report formats:** Built-in presets in `REPORT_FORMAT_PRESETS`. User selects in Settings. `custom` format uses `custom_report_prompt` field.
+
+**Do NOT use AI SDK (`ai` / `@ai-sdk/openai-compatible`)** — previously tried but incompatible with `tauriFetch` streaming. Direct `tauriFetch` + manual SSE parsing is the working approach.
 
 ### TypeScript API (`src/lib/api.ts`)
 
@@ -85,20 +109,25 @@ interface AppConfig {
   theme?: "light" | "dark" | "system";
   show_hint_bar?: boolean;
   locale?: string;
-  agent_command?: string;  // e.g. "claude" or "cat" — piped via shell
+  ai?: AiConfig;
+  report_format?: string;
+  custom_report_prompt?: string;
+}
+
+interface AiConfig {
+  provider: string;
+  api_base_url: string;
+  api_key: string;
+  model: string;
 }
 ```
-
-## Prompt assembly
-
-`src/lib/prompt.ts` exports `assemblePrompt(template, instruction, sources)` — must match Rust's `DEFAULT_PROMPT` placeholder replacement order: `{{instruction}}` first, then `{{source}}`. Sources are sorted by filename, joined with `\n\n---\n\n`, each prefixed with `# {path}\n\n`.
 
 ## Testing
 
 - **Framework**: vitest (`npm test`)
 - **Config**: `vitest.config.ts` — includes only `src/__tests__/**/*.test.ts`
 - **Path alias**: `@/` configured in vitest config (mirrors tsconfig)
-- **Current tests**: `src/__tests__/prompt.test.ts` (8 tests for `assemblePrompt`)
+- **Current tests**: none
 
 ## Data layout
 
@@ -106,9 +135,7 @@ interface AppConfig {
 ~/.workerbee/
 ├── .workerbee.config.json   # app config (NOT in app_data_dir)
 ├── logs/                    # YYYY-MM-DD.md per day
-├── reports/                 # generated reports
-├── templates/               # prompt templates (default.md auto-created)
-└── .last-prompt.md          # most recent assembled prompt (debug artifact)
+└── reports/                 # generated reports
 ```
 
 Log entry format:
@@ -144,11 +171,10 @@ Time anchors: `## HH:mm`. `parseLogEntries()` in `src/lib/utils.ts` is the singl
 - **`workerbee_lib`** crate name is a Windows cargo workaround (`Cargo.toml` `[lib]` name). The bin is still `workerbee`. Does not affect usage.
 - **QuickInputApp has duplicate utils** (`formatCurrentTime/Date`, `applyTheme`) because it's a separate Vite entry point and can't import from `src/lib/`. Do NOT try to share these — they must stay self-contained.
 - **`saveEdit()` blur handler** reads from DOM directly (not React state) to avoid stale closures from React batched updates.
-- **`generate_report`** on Windows uses `CommandExt::raw_arg()` + `cmd.exe /K` — not `args()` — because MSVCRT quoting breaks pipe `|`. Any modification to this code must preserve `raw_arg`.
 - **No `scripts/` directory exists** yet — `build:cli` script references `scripts/build-cli.js` which hasn't been created.
 - **`ShortcutsHelpDialog`** only renders `<DialogContent>`, no outer `<Dialog>` — the caller must provide the wrapper. Do NOT nest Radix Dialogs.
 - **Do not** use `setLocale("system")` — it doesn't change locale, just keeps browser-detected result.
-- **`ensure_dirs`** in Rust creates `logs/`, `reports/`, `templates/` on every `save_config` call.
+- **`ensure_dirs`** in Rust creates `logs/`, `reports/` on every `save_config` call.
 
 ## Anti-patterns
 

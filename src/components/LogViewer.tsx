@@ -5,6 +5,7 @@ import { readLog, writeLog } from "../lib/api";
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { t } from "../lib/i18n";
+import { InlineEntryContent } from "./InlineEntryContent";
 
 interface LogViewerProps {
   dates: string[];
@@ -12,6 +13,7 @@ interface LogViewerProps {
   onSelectDate: (date: string) => void;
   logContent: string;
   onRefresh: () => void;
+  storagePath: string;
 }
 
 export function LogViewer({
@@ -20,6 +22,7 @@ export function LogViewer({
   onSelectDate,
   logContent,
   onRefresh,
+  storagePath,
 }: LogViewerProps) {
   const entries = parseLogEntries(logContent);
 
@@ -212,7 +215,7 @@ export function LogViewer({
                           if (e.relatedTarget === editContentRef.current) return;
                           saveEdit(editTimeRef.current?.value, editContentRef.current?.value);
                         }}
-                        className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 mb-0.5 p-0 h-auto"
+                        className="w-full block bg-transparent text-xs font-mono text-muted-foreground outline-none border-0 p-0 h-auto"
                         placeholder="HH:mm"
                       />
                       <textarea
@@ -241,7 +244,7 @@ export function LogViewer({
                       }}
                     >
                       <div data-field="time" className="text-xs font-mono text-muted-foreground mb-0.5">{entry.time}</div>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.content}</p>
+                      <InlineEntryContent content={entry.content} storagePath={storagePath} />
                     </div>
                   )}
                 </div>

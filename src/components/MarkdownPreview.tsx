@@ -22,15 +22,25 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
     setLightboxOpen(true);
   };
 
-  const CustomImage = ({ src, alt, ...props }: any) => (
-    <img
-      src={src.startsWith("data:") ? src : convertFileSrc(src)}
-      alt={alt}
-      className="cursor-pointer hover:opacity-90 transition-opacity"
-      onClick={() => handleImageClick(src)}
-      {...props}
-    />
-  );
+  const CustomImage = ({ src, alt, ...props }: React.ComponentProps<"img">) => {
+    const resolvedSrc = src && !src.startsWith("data:") ? convertFileSrc(src) : src ?? "";
+
+    const handleClick = () => {
+      if (resolvedSrc) {
+        handleImageClick(resolvedSrc);
+      }
+    };
+
+    return (
+      <img
+        src={resolvedSrc}
+        alt={alt}
+        className="cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={handleClick}
+        {...props}
+      />
+    );
+  };
 
   return (
     <>

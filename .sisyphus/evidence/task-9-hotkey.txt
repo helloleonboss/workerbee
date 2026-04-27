@@ -1,0 +1,1 @@
+Screenshot hotkey, overlay lifecycle, and log integration implemented

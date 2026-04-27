@@ -2,13 +2,14 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for all windows",
-  "windows": ["main", "quick-input"],
+  "windows": ["main", "quick-input", "screenshot-overlay"],
   "permissions": [
     "core:default",
     "core:event:default",
     "opener:default",
     "global-shortcut:default",
     "dialog:default",
+    "agent-control:default",
     "core:window:default",
     "core:window:allow-show",
     "core:window:allow-hide",
@@ -18,6 +19,13 @@
     "core:window:allow-set-title",
     "core:window:allow-set-size",
     "core:window:allow-center",
-    "core:tray:default"
+    "core:tray:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://**" }
+      ]
+    }
   ]
 }

@@ -1,0 +1,1 @@
+cargo check succeeded with expected warnings (unused variables/fields expected)

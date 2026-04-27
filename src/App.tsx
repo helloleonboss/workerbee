@@ -47,6 +47,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sh
 import { FolderOpen, FileText, Settings, Sun, HelpCircle, Sparkles, Loader2 } from "lucide-react";
 import { ShortcutsHelpDialog } from "./components/ShortcutsHelpDialog";
 import { ReportsView } from "./components/ReportsView";
+import { InlineEntryContent } from "./components/InlineEntryContent";
 
 type View = "today" | "logs" | "reports" | "settings";
 
@@ -119,36 +120,11 @@ function App() {
     init();
   }, []);
 
-  // Register global shortcut (Rust-side with_handler does the actual toggle,
-  // JS-side registration is needed so the plugin recognizes the shortcut string)
-  useEffect(() => {
-    if (!config) return;
-
-    const shortcut = config.shortcut || DEFAULT_SHORTCUT;
-    let cancelled = false;
-
-    async function apply() {
-      if (cancelled) return;
-      try {
-        const mod = await import("@tauri-apps/plugin-global-shortcut");
-        try { await mod.unregister(shortcut); } catch { /* not registered yet */ }
-        await mod.register(shortcut, () => {
-          // Rust with_handler already toggles the window.
-          // This JS callback exists solely so the plugin registers the
-          // shortcut string — without it the plugin won't recognize the key.
-        });
-        console.log("[shortcut] Registered:", shortcut);
-      } catch (e) {
-        console.error("[shortcut] Registration failed:", shortcut, e);
-      }
-    }
-
-    apply();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [config?.shortcut]);
+  // NOTE: Global shortcut registration is handled entirely in Rust
+  // (setup() registers on launch, save_config re-registers on change).
+  // JS-side registration was removed because it conflicted with Rust:
+  // unregister() wiped the Rust registration, and the empty JS callback
+  // served no purpose.
 
   // Listen for navigate-to-settings event (from tray menu)
   useEffect(() => {
@@ -273,6 +249,7 @@ function App() {
               onSelectDate={setSelectedDate}
               logContent={logContent}
               onRefresh={handleRefreshLogs}
+              storagePath={config.storage_path}
             />
           </TabsContent>
 
@@ -678,7 +655,7 @@ function TodayView({
                     }}
                   >
                     <div data-field="time" className="text-xs font-mono text-muted-foreground mb-0.5">{entry.time}</div>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.content}</p>
+                    <InlineEntryContent content={entry.content} storagePath={config.storage_path} />
                   </div>
                 )}
               </div>

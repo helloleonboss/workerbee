@@ -201,9 +201,7 @@ export async function deleteTemplate(filename: string): Promise<void> {
 
 // ─── Screenshot API ───
 
-export async function captureScreens(): Promise<[string, number, number]> {
-  return invoke("capture_screens");
-}
+export type ScreenshotFormat = "webp" | "png" | "jpeg";
 
 export async function cropAndSaveScreenshot(
   x: number,
@@ -214,8 +212,8 @@ export async function cropAndSaveScreenshot(
   return invoke("crop_and_save_screenshot", { x, y, width, height });
 }
 
-export async function saveScreenshotLogEntry(imagePath: string): Promise<void> {
-  return invoke("save_screenshot_log_entry", { imagePath });
+export async function saveScreenshotLogEntry(imagePath: string, description?: string): Promise<void> {
+  return invoke("save_screenshot_log_entry", { imagePath, description });
 }
 
 export async function closeScreenshotOverlay(): Promise<void> {
@@ -228,4 +226,19 @@ export async function cancelScreenshot(): Promise<void> {
 
 export async function readScreenshotAsBase64(relativePath: string): Promise<string> {
   return invoke("read_screenshot_as_base64", { relativePath });
+}
+
+export interface ScreenshotInfo {
+  filename: string;
+  size_bytes: number;
+  created_at: string;
+  relative_path: string;
+}
+
+export async function listScreenshots(): Promise<ScreenshotInfo[]> {
+  return invoke("list_screenshots");
+}
+
+export async function deleteScreenshot(filename: string): Promise<void> {
+  return invoke("delete_screenshot", { filename });
 }

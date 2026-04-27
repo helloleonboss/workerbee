@@ -64,10 +64,14 @@ function TabsContent({
   active,
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { active?: boolean }) {
-  if (!active) return null;
   return (
     <div
-      className={cn("mt-2 ring-offset-background focus-visible:outline-none", className)}
+      className={cn(
+        "mt-2 ring-offset-background focus-visible:outline-none",
+        active && "flex flex-col",
+        className,
+      )}
+      style={{ display: active ? undefined : "none" }}
       role="tabpanel"
       {...props}
     >

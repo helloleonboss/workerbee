@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "WorkerBee",
-        "width": 900,
-        "height": 680,
+        "width": 1080,
+        "height": 780,
         "center": true,
         "decorations": true,
         "visible": true
